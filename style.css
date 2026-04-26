@@ -1,0 +1,262 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Fredoka One', cursive;
+    background: #2c3e50;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    overflow: hidden;
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior-y: contain; 
+    touch-action: none; 
+}
+
+.game-container {
+    width: 100%;
+    max-width: 500px;
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 95vh;
+    max-height: 850px;
+    position: relative;
+}
+
+.screen { 
+    display: none; 
+    flex-direction: column; 
+    flex: 1; 
+    overflow: auto; 
+    padding: 20px; 
+    animation: fadeIn 0.3s ease-in-out;
+}
+.screen.active { display: flex; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Estilos de Botões */
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 15px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    margin: 8px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    /* Improve touch targets */
+    min-height: 48px; 
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.2); }
+.btn-primary { background: #FF6B35; color: white; }
+.btn-success { background: #4CAF50; color: white; }
+.btn-danger { background: #f44336; color: white; }
+.btn-small { padding: 8px 16px; font-size: 0.9rem; }
+
+/* ===== CORRIDA ESTILO SUBWAY SURFERS ===== */
+#race-container {
+    position: relative;
+    width: 100%;
+    height: 450px;
+    background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 40%, #556B2F 40%, #556B2F 45%, #333 45%, #111 100%);
+    overflow: hidden;
+    border-radius: 15px;
+    perspective: 600px;
+    /* Enable swiping */
+    touch-action: pan-y;
+}
+
+/* Estrada em Perspectiva */
+.road {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 1000px;
+    height: 600px;
+    background: #333;
+    transform: translateX(-50%) rotateX(60deg);
+    transform-origin: bottom center;
+    border-left: 10px solid #555;
+    border-right: 10px solid #555;
+}
+.lane-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: rgba(255,255,255,0.3);
+    left: 33.33%;
+}
+.lane-line.right { left: 66.66%; }
+
+/* Elementos do Jogo */
+.race-hero {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 4rem;
+    z-index: 100;
+    transition: left 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94); /* Smoother and faster transitions */
+    filter: drop-shadow(0 10px 5px rgba(0,0,0,0.3));
+    will-change: left, bottom, transform;
+}
+.race-hero.jumping {
+    animation: jumpAnim 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+@keyframes jumpAnim {
+    0% { bottom: 40px; transform: translateX(-50%) scale(1); }
+    50% { bottom: 180px; transform: translateX(-50%) scale(1.2); }
+    100% { bottom: 40px; transform: translateX(-50%) scale(1); }
+}
+
+.game-obj {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    pointer-events: none;
+    will-change: transform, top, left, opacity; /* Hinting for hardware acceleration */
+    display: none; /* Hidden by default for object pooling */
+}
+
+/* Controles da Corrida */
+.race-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 15px;
+    background: #f8f9fa;
+}
+.control-btn {
+    height: 70px;
+    background: #eee;
+    border: 3px solid #ddd;
+    border-radius: 15px;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    touch-action: manipulation; /* Faster touch response */
+}
+.control-btn:active { background: #ddd; transform: scale(0.95); }
+.btn-jump { grid-column: span 3; background: #FF6B35; color: white; border-color: #e65a2b; }
+
+/* ===== OUTRAS TELAS E ESTILOS ===== */
+.menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    padding: 10px;
+}
+.menu-card {
+    background: white;
+    border: 4px solid #f0f0f0;
+    border-radius: 20px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    -webkit-tap-highlight-color: transparent;
+}
+.menu-card:active { transform: scale(0.95); }
+.menu-card:hover { border-color: #FF6B35; transform: translateY(-5px); }
+.menu-card h3 { margin-top: 10px; color: #333; }
+.icon-lg { font-size: 3rem; }
+
+.score-bar {
+    background: #f0f0f0;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1rem;
+    border-radius: 0 0 15px 15px;
+}
+
+/* Modal */
+#modal-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+}
+.modal-box {
+    background: white;
+    padding: 30px;
+    border-radius: 25px;
+    text-align: center;
+    width: 100%;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Jogo da Memória */
+.memory-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+.memory-card {
+    aspect-ratio: 1;
+    background: #FF6B35;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    cursor: pointer;
+    color: transparent;
+    transition: transform 0.4s;
+    transform-style: preserve-3d;
+    box-shadow: 0 4px 0 #d9531e;
+}
+.memory-card:active {
+    box-shadow: 0 0px 0 #d9531e;
+    transform: translateY(4px);
+}
+.memory-card.flipped { 
+    background: white; 
+    border: 2px solid #FF6B35; 
+    color: initial; 
+    transform: rotateY(180deg); 
+    box-shadow: none;
+}
+.memory-card.matched {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+/* Jogo de Blocos */
+#blocks-canvas {
+    background: #222;
+    display: block;
+    margin: 10px auto;
+    border: 4px solid #333;
+    border-radius: 10px;
+    max-width: 100%;
+    touch-action: none;
+}

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aventura Kids</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF6B35">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌈</text></svg>">
+    
+    <!-- Fonte -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+    
+    <!-- Estilos -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="game-container">
+    <!-- Tela Inicial -->
+    <div id="screen-start" class="screen active">
+        <h1 style="font-size: 2.5rem; color: #FF6B35; margin-top: 40px; text-align: center;">AVENTURA KIDS</h1>
+        <p style="color: #666; margin-bottom: 30px; text-align: center;">O mundo da diversão!</p>
+        <div style="font-size: 8rem; text-align: center; margin: 20px;">🌈</div>
+        <button class="btn btn-primary" onclick="showScreen('screen-hero')" style="margin-top: auto; padding: 20px;">VAMOS COMEÇAR! 🚀</button>
+    </div>
+
+    <!-- Seleção de Herói -->
+    <div id="screen-hero" class="screen">
+        <h2 style="text-align: center; color: #333; margin-bottom: 10px;">Escolha seu Amigo!</h2>
+        <div class="menu-grid">
+            <div class="menu-card" onclick="setHero('🐶')"><div class="icon-lg">🐶</div><h3>Dogão</h3></div>
+            <div class="menu-card" onclick="setHero('🦁')"><div class="icon-lg">🦁</div><h3>Leão</h3></div>
+            <div class="menu-card" onclick="setHero('🦖')"><div class="icon-lg">🦖</div><h3>Dino</h3></div>
+            <div class="menu-card" onclick="setHero('🦊')"><div class="icon-lg">🦊</div><h3>Raposa</h3></div>
+        </div>
+    </div>
+
+    <!-- Menu Principal -->
+    <div id="screen-menu" class="screen">
+        <h2 style="text-align: center; color: #333; margin-bottom: 10px;">O que vamos jogar?</h2>
+        <div class="menu-grid">
+            <div class="menu-card" onclick="initRace()">
+                <div class="icon-lg">🏃</div>
+                <h3>Corrida</h3>
+                <p style="font-size: 0.8rem; color: #888;">Deslize para jogar!</p>
+            </div>
+            <div class="menu-card" onclick="initMemory()">
+                <div class="icon-lg">🧠</div>
+                <h3>Memória</h3>
+                <p style="font-size: 0.8rem; color: #888;">Treine a mente!</p>
+            </div>
+            <div class="menu-card" onclick="initBlocks()">
+                <div class="icon-lg">🧱</div>
+                <h3>Blocos</h3>
+                <p style="font-size: 0.8rem; color: #888;">Estilo Tetris!</p>
+            </div>
+            <div class="menu-card" onclick="showScreen('screen-hero')">
+                <div class="icon-lg">👤</div>
+                <h3>Trocar</h3>
+                <p style="font-size: 0.8rem; color: #888;">Personagem</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela de Corrida -->
+    <div id="screen-race" class="screen" style="padding: 0;">
+        <div class="score-bar">
+            <span>❤️ <span id="race-lives">3</span></span>
+            <span>⭐ <span id="race-score">0</span></span>
+            <button class="btn btn-danger btn-small" onclick="quitGame()" style="margin:0;">🚩 Sair</button>
+        </div>
+        <div id="race-container">
+            <div class="road">
+                <div class="lane-line"></div>
+                <div class="lane-line right"></div>
+            </div>
+            <div id="race-hero" class="race-hero">🐶</div>
+            <!-- Objetos injetados via JS pelo Object Pool -->
+        </div>
+        <div class="race-controls">
+            <button class="control-btn" onclick="moveLane(-1)">◀</button>
+            <button class="control-btn" onclick="jump()">PULAR ⬆️</button>
+            <button class="control-btn" onclick="moveLane(1)">▶</button>
+            <button class="control-btn btn-jump" onclick="jump()">PULAR! 🚀</button>
+        </div>
+    </div>
+
+    <!-- Tela de Resultado Corrida -->
+    <div id="screen-race-over" class="screen">
+        <h2 style="text-align: center; color: #333;">Fim da Corrida!</h2>
+        <div style="font-size: 5rem; text-align: center; margin: 20px;">🏁</div>
+        <div class="score-bar" style="flex-direction: column; gap: 10px; border-radius: 15px; margin-bottom: 20px;">
+            <p>Estrelas Coletadas: <strong id="final-stars" style="color: #FF6B35;">0</strong></p>
+            <p>Distância Alcançada: <strong id="final-dist" style="color: #4CAF50;">0m</strong></p>
+        </div>
+        <button class="btn btn-success" onclick="initRace()">Tentar de Novo 🔄</button>
+        <button class="btn btn-primary" onclick="showScreen('screen-menu')">Menu Principal 🏠</button>
+    </div>
+
+    <!-- Tela Memória -->
+    <div id="screen-memory" class="screen">
+        <div class="score-bar" style="border-radius: 15px; margin-bottom: 10px;">
+            <span>⏱️ <span id="memory-time">0s</span></span>
+            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')" style="margin:0;">Sair</button>
+        </div>
+        <div class="memory-grid" id="memory-grid"></div>
+    </div>
+
+    <!-- Tela Blocos -->
+    <div id="screen-blocks" class="screen">
+        <div class="score-bar" style="border-radius: 15px; margin-bottom: 10px;">
+            <span style="font-weight: bold; color: #FF6B35;">BLOCOS</span>
+            <button class="btn btn-danger btn-small" onclick="quitBlocks()" style="margin:0;">Sair</button>
+        </div>
+        <canvas id="blocks-canvas" width="240" height="480"></canvas>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 10px;">
+            <button class="btn btn-primary" onclick="moveBlock(-1)">◀</button>
+            <button class="btn btn-success" onclick="rotateBlock()">↻</button>
+            <button class="btn btn-primary" onclick="moveBlock(1)">▶</button>
+            <button class="btn btn-primary" onclick="dropBlock()" style="grid-column: span 3; height: 50px;">Descer ⬇️</button>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h3 id="modal-title" style="color: #333;">Parar agora?</h3>
+            <p id="modal-text" style="margin: 15px 0; color: #666;">Se você sair, perderá o progresso desta partida!</p>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-danger" style="flex: 1;" onclick="confirmQuit()">Sim, Sair</button>
+                <button class="btn btn-success" style="flex: 1;" onclick="closeModal()">Continuar!</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="game.js"></script>
+<script>
+    // Registro do Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker Registrado!', reg))
+                .catch(err => console.error('Erro no Service Worker', err));
+        });
+    }
+</script>
+</body>
+</html>
