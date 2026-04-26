@@ -2,233 +2,37 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aventura Kids - Subway Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Aventura Kids</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF6B35">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌈</text></svg>">
+    
+    <!-- Fonte -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Fredoka One', cursive;
-            background: #2c3e50;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 10px;
-            overflow: hidden;
-        }
-        .game-container {
-            width: 100%;
-            max-width: 500px;
-            background: white;
-            border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            height: 95vh;
-            max-height: 850px;
-            position: relative;
-        }
-        .screen { display: none; flex-direction: column; flex: 1; overflow: auto; padding: 20px; }
-        .screen.active { display: flex; }
-        
-        /* Estilos de Botões */
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 15px;
-            font-family: 'Fredoka One', cursive;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin: 8px;
-            box-shadow: 0 4px 0 rgba(0,0,0,0.2);
-        }
-        .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
-        .btn-primary { background: #FF6B35; color: white; }
-        .btn-success { background: #4CAF50; color: white; }
-        .btn-danger { background: #f44336; color: white; }
-        .btn-small { padding: 8px 16px; font-size: 0.9rem; }
-
-        /* ===== CORRIDA ESTILO SUBWAY SURFERS ===== */
-        #race-container {
-            position: relative;
-            width: 100%;
-            height: 450px;
-            background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 40%, #556B2F 40%, #556B2F 45%, #333 45%, #111 100%);
-            overflow: hidden;
-            border-radius: 15px;
-            perspective: 600px;
-        }
-        
-        /* Estrada em Perspectiva */
-        .road {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            width: 1000px;
-            height: 600px;
-            background: #333;
-            transform: translateX(-50%) rotateX(60deg);
-            transform-origin: bottom center;
-            border-left: 10px solid #555;
-            border-right: 10px solid #555;
-        }
-        .lane-line {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: rgba(255,255,255,0.3);
-            left: 33.33%;
-        }
-        .lane-line.right { left: 66.66%; }
-
-        /* Elementos do Jogo */
-        .race-hero {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 4rem;
-            z-index: 100;
-            transition: left 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            filter: drop-shadow(0 10px 5px rgba(0,0,0,0.3));
-        }
-        .race-hero.jumping {
-            animation: jumpAnim 0.6s ease-out;
-        }
-        @keyframes jumpAnim {
-            0% { bottom: 40px; transform: translateX(-50%) scale(1); }
-            50% { bottom: 180px; transform: translateX(-50%) scale(1.2); }
-            100% { bottom: 40px; transform: translateX(-50%) scale(1); }
-        }
-
-        .game-obj {
-            position: absolute;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 50;
-            pointer-events: none;
-        }
-
-        /* Controles da Corrida */
-        .race-controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            padding: 15px;
-            background: #f8f9fa;
-        }
-        .control-btn {
-            height: 70px;
-            background: #eee;
-            border: 3px solid #ddd;
-            border-radius: 15px;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            user-select: none;
-        }
-        .control-btn:active { background: #ddd; }
-        .btn-jump { grid-column: span 3; background: #FF6B35; color: white; border-color: #e65a2b; }
-
-        /* ===== OUTRAS TELAS E ESTILOS ===== */
-        .menu-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            padding: 10px;
-        }
-        .menu-card {
-            background: white;
-            border: 4px solid #f0f0f0;
-            border-radius: 20px;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .menu-card:hover { border-color: #FF6B35; transform: translateY(-5px); }
-        .menu-card h3 { margin-top: 10px; color: #333; }
-        .icon-lg { font-size: 3rem; }
-
-        .score-bar {
-            background: #f0f0f0;
-            padding: 10px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 1.1rem;
-        }
-
-        /* Modal */
-        #modal-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .modal-box {
-            background: white;
-            padding: 30px;
-            border-radius: 25px;
-            text-align: center;
-            width: 100%;
-        }
-
-        /* Jogo da Memória */
-        .memory-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: 10px;
-        }
-        .memory-card {
-            aspect-ratio: 1;
-            background: #FF6B35;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            cursor: pointer;
-            color: transparent;
-            transition: transform 0.3s;
-        }
-        .memory-card.flipped { background: white; border: 2px solid #FF6B35; color: initial; transform: rotateY(180deg); }
-
-        /* Jogo de Blocos */
-        #blocks-canvas {
-            background: #eee;
-            display: block;
-            margin: 10px auto;
-            border: 4px solid #333;
-            border-radius: 10px;
-        }
-    </style>
+    
+    <!-- Estilos -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- Background Animado -->
+<div class="bg-pattern"></div>
 
 <div class="game-container">
     <!-- Tela Inicial -->
     <div id="screen-start" class="screen active">
-        <h1 style="font-size: 2.5rem; color: #FF6B35; margin-top: 40px;">AVENTURA KIDS</h1>
-        <p style="color: #666; margin-bottom: 30px;">O mundo da diversão!</p>
-        <div style="font-size: 8rem; text-align: center; margin: 20px;">🌈</div>
-        <button class="btn btn-primary" onclick="showScreen('screen-hero')" style="margin-top: auto; padding: 20px;">VAMOS COMEÇAR! 🚀</button>
+        <h1 style="font-size: 2.5rem; color: #FF6B35; margin-top: 40px; text-align: center; text-shadow: 2px 2px 0px #fff;">AVENTURA KIDS</h1>
+        <p style="color: #666; margin-bottom: 30px; text-align: center; font-size: 1.2rem;">O mundo da diversão!</p>
+        <div style="font-size: 8rem; text-align: center; margin: 20px; animation: float 3s ease-in-out infinite;">🌈</div>
+        <button class="btn btn-primary" onclick="showScreen('screen-hero')" style="margin-top: auto; padding: 20px; font-size: 1.5rem;">VAMOS COMEÇAR! 🚀</button>
     </div>
 
     <!-- Seleção de Herói -->
     <div id="screen-hero" class="screen">
-        <h2>Escolha seu Amigo!</h2>
+        <h2 style="text-align: center; color: #333; margin-bottom: 10px;">Escolha seu Amigo!</h2>
         <div class="menu-grid">
             <div class="menu-card" onclick="setHero('🐶')"><div class="icon-lg">🐶</div><h3>Dogão</h3></div>
             <div class="menu-card" onclick="setHero('🦁')"><div class="icon-lg">🦁</div><h3>Leão</h3></div>
@@ -239,26 +43,31 @@
 
     <!-- Menu Principal -->
     <div id="screen-menu" class="screen">
-        <h2>O que vamos jogar?</h2>
-        <div class="menu-grid">
+        <h2 style="text-align: center; color: #333; margin-bottom: 10px;">O que vamos jogar?</h2>
+        <div class="menu-grid" style="grid-template-columns: 1fr 1fr; overflow-y: auto;">
             <div class="menu-card" onclick="initRace()">
                 <div class="icon-lg">🏃</div>
                 <h3>Corrida</h3>
-                <p style="font-size: 0.8rem; color: #888;">Estilo Subway!</p>
             </div>
-            <div class="menu-card" onclick="initMemory()">
-                <div class="icon-lg">🧠</div>
-                <h3>Memória</h3>
-                <p style="font-size: 0.8rem; color: #888;">Treine a mente!</p>
+            <div class="menu-card" onclick="initFlappy()">
+                <div class="icon-lg">✈️</div>
+                <h3>Flappy</h3>
             </div>
             <div class="menu-card" onclick="initBlocks()">
                 <div class="icon-lg">🧱</div>
                 <h3>Blocos</h3>
-                <p style="font-size: 0.8rem; color: #888;">Construa tudo!</p>
             </div>
-            <div class="menu-card" onclick="showScreen('screen-start')">
-                <div class="icon-lg">🏠</div>
-                <h3>Sair</h3>
+            <div class="menu-card" onclick="initPiano()">
+                <div class="icon-lg">🎹</div>
+                <h3>Piano</h3>
+            </div>
+            <div class="menu-card" onclick="initMemory()">
+                <div class="icon-lg">🧠</div>
+                <h3>Memória</h3>
+            </div>
+            <div class="menu-card" onclick="showScreen('screen-hero')">
+                <div class="icon-lg">👤</div>
+                <h3>Trocar</h3>
             </div>
         </div>
     </div>
@@ -268,62 +77,85 @@
         <div class="score-bar">
             <span>❤️ <span id="race-lives">3</span></span>
             <span>⭐ <span id="race-score">0</span></span>
-            <button class="btn btn-danger btn-small" onclick="quitGame()">🚩</button>
+            <button class="btn btn-danger btn-small" onclick="quitGame()" style="margin:0;">🚩 Sair</button>
         </div>
-        <div id="race-container">
+        <!-- Expandido para ocupar tudo (sem controles) -->
+        <div id="race-container" style="flex: 1; height: auto;">
+            <div class="clouds"></div>
             <div class="road">
                 <div class="lane-line"></div>
                 <div class="lane-line right"></div>
             </div>
             <div id="race-hero" class="race-hero">🐶</div>
         </div>
-        <div class="race-controls">
-            <div class="control-btn" onmousedown="moveLane(-1)">◀</div>
-            <div class="control-btn" onmousedown="jump()">PULAR ⬆️</div>
-            <div class="control-btn" onmousedown="moveLane(1)">▶</div>
-            <div class="control-btn btn-jump" onmousedown="jump()">PULAR! 🚀</div>
+    </div>
+
+    <!-- Tela Flappy Pet -->
+    <div id="screen-flappy" class="screen" style="padding: 0; position: relative; overflow: hidden; background: #71C5CF;">
+        <div class="score-bar" style="position: absolute; top: 0; left: 0; right: 0; z-index: 100; background: rgba(255,255,255,0.8);">
+            <span style="font-weight: bold; color: #333;">Score: <span id="flappy-score">0</span></span>
+            <button class="btn btn-danger btn-small" onclick="quitFlappy()" style="margin:0;">Sair</button>
+        </div>
+        <div id="flappy-container" style="width: 100%; height: 100%; position: relative;">
+            <div id="flappy-hero" style="position: absolute; left: 20%; top: 50%; font-size: 3rem; transform: translateY(-50%); transition: transform 0.1s;">🐶</div>
         </div>
     </div>
 
-    <!-- Tela de Resultado Corrida -->
-    <div id="screen-race-over" class="screen">
-        <h2>Fim da Corrida!</h2>
-        <div style="font-size: 5rem; text-align: center; margin: 20px;">🏁</div>
-        <div class="score-bar" style="flex-direction: column; gap: 10px; border-radius: 15px;">
-            <p>Estrelas Coletadas: <strong id="final-stars" style="color: #FF6B35;">0</strong></p>
-            <p>Distância: <strong id="final-dist" style="color: #4CAF50;">0m</strong></p>
+    <!-- Tela Piano -->
+    <div id="screen-piano" class="screen">
+        <div class="score-bar" style="border-radius: 15px; margin-bottom: 20px;">
+            <span style="font-weight: bold; color: #FF6B35;">PIANO KIDS</span>
+            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')" style="margin:0;">Sair</button>
         </div>
-        <button class="btn btn-success" onclick="initRace()" style="margin-top: 20px;">Tentar de Novo 🔄</button>
+        <div class="piano-container">
+            <div class="piano-key" data-note="261.63" style="background: #FF595E;">Dó</div>
+            <div class="piano-key" data-note="293.66" style="background: #FFCA3A;">Ré</div>
+            <div class="piano-key" data-note="329.63" style="background: #8AC926;">Mi</div>
+            <div class="piano-key" data-note="349.23" style="background: #1982C4;">Fá</div>
+            <div class="piano-key" data-note="392.00" style="background: #6A4C93;">Sol</div>
+            <div class="piano-key" data-note="440.00" style="background: #FF924C;">Lá</div>
+            <div class="piano-key" data-note="493.88" style="background: #FF69EB;">Si</div>
+        </div>
+    </div>
+
+    <!-- Tela de Resultado Corrida / Flappy -->
+    <div id="screen-race-over" class="screen">
+        <h2 style="text-align: center; color: #333;">Fim de Jogo!</h2>
+        <div style="font-size: 5rem; text-align: center; margin: 20px;">🏁</div>
+        <div class="score-bar" style="flex-direction: column; gap: 10px; border-radius: 15px; margin-bottom: 20px;">
+            <p>Pontuação: <strong id="final-score" style="color: #FF6B35;">0</strong></p>
+        </div>
         <button class="btn btn-primary" onclick="showScreen('screen-menu')">Menu Principal 🏠</button>
     </div>
 
     <!-- Tela Memória -->
     <div id="screen-memory" class="screen">
-        <div style="display:flex; justify-content: space-between; align-items: center;">
-            <h2>Memória</h2>
-            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')">Sair</button>
+        <div class="score-bar" style="border-radius: 15px; margin-bottom: 10px;">
+            <span>⏱️ <span id="memory-time">0s</span></span>
+            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')" style="margin:0;">Sair</button>
         </div>
         <div class="memory-grid" id="memory-grid"></div>
     </div>
 
     <!-- Tela Blocos -->
-    <div id="screen-blocks" class="screen">
-        <div style="display:flex; justify-content: space-between; align-items: center;">
-            <h2>Blocos</h2>
-            <button class="btn btn-danger btn-small" onclick="quitBlocks()">Sair</button>
+    <div id="screen-blocks" class="screen" style="padding-bottom: 0;">
+        <div class="score-bar" style="border-radius: 15px 15px 0 0; margin-bottom: 0;">
+            <span style="font-weight: bold; color: #FF6B35;">BLOCOS</span>
+            <button class="btn btn-danger btn-small" onclick="quitBlocks()" style="margin:0;">Sair</button>
         </div>
-        <canvas id="blocks-canvas" width="240" height="400"></canvas>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-            <button class="btn btn-primary" onclick="moveBlock(-1)">◀</button>
-            <button class="btn btn-primary" onclick="rotateBlock()">↻</button>
-            <button class="btn btn-primary" onclick="moveBlock(1)">▶</button>
+        <!-- Canvas ocupará o resto da tela, sem botões de controle -->
+        <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #222; border-radius: 0 0 15px 15px; overflow: hidden; position: relative;">
+            <canvas id="blocks-canvas" style="max-height: 100%;"></canvas>
+            <div id="blocks-swipe-hint" style="position: absolute; bottom: 20px; color: rgba(255,255,255,0.5); font-size: 0.8rem; pointer-events: none; text-align: center;">
+                Arrastar = Mover<br>Toque = Girar<br>Para Baixo = Cair
+            </div>
         </div>
     </div>
 
     <!-- Modal de Confirmação -->
     <div id="modal-overlay">
         <div class="modal-box">
-            <h3 id="modal-title">Parar agora?</h3>
+            <h3 id="modal-title" style="color: #333;">Parar agora?</h3>
             <p id="modal-text" style="margin: 15px 0; color: #666;">Se você sair, perderá o progresso desta partida!</p>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-danger" style="flex: 1;" onclick="confirmQuit()">Sim, Sair</button>
@@ -333,259 +165,17 @@
     </div>
 </div>
 
+<!-- Scripts -->
+<script src="game.js"></script>
 <script>
-    let currentHero = '🐶';
-    let gameLoop;
-    let raceState = {
-        active: false,
-        lane: 1, // 0: Esquerda, 1: Centro, 2: Direita
-        jumping: false,
-        lives: 3,
-        score: 0,
-        distance: 0,
-        objects: [],
-        speed: 5,
-        nextObjTime: 0
-    };
-
-    function showScreen(id) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        if (id !== 'screen-race') raceState.active = false;
-    }
-
-    function setHero(emoji) {
-        currentHero = emoji;
-        document.getElementById('race-hero').textContent = emoji;
-        showScreen('screen-menu');
-    }
-
-    // ===== LÓGICA DA CORRIDA (SUBWAY STYLE) =====
-    function initRace() {
-        raceState = {
-            active: true,
-            lane: 1,
-            jumping: false,
-            lives: 3,
-            score: 0,
-            distance: 0,
-            objects: [],
-            speed: 6,
-            nextObjTime: Date.now()
-        };
-        updateRaceUI();
-        updateHeroPos();
-        // Limpar objetos antigos
-        document.querySelectorAll('.game-obj').forEach(o => o.remove());
-        showScreen('screen-race');
-        
-        if (gameLoop) clearInterval(gameLoop);
-        gameLoop = setInterval(runRace, 20);
-    }
-
-    function moveLane(dir) {
-        if (!raceState.active) return;
-        raceState.lane = Math.max(0, Math.min(2, raceState.lane + dir));
-        updateHeroPos();
-    }
-
-    function updateHeroPos() {
-        const hero = document.getElementById('race-hero');
-        const positions = ['20%', '50%', '80%'];
-        hero.style.left = positions[raceState.lane];
-    }
-
-    function jump() {
-        if (!raceState.active || raceState.jumping) return;
-        raceState.jumping = true;
-        const hero = document.getElementById('race-hero');
-        hero.classList.add('jumping');
-        setTimeout(() => {
-            raceState.jumping = false;
-            hero.classList.remove('jumping');
-        }, 600);
-    }
-
-    function runRace() {
-        if (!raceState.active) return;
-
-        raceState.distance += 0.1;
-        raceState.speed += 0.0005;
-
-        // Gerar Objetos
-        if (Date.now() > raceState.nextObjTime) {
-            spawnObject();
-            raceState.nextObjTime = Date.now() + (Math.random() * 1500 + 500) / (raceState.speed / 5);
-        }
-
-        // Mover Objetos
-        raceState.objects.forEach((obj, index) => {
-            obj.progress += raceState.speed * 0.002;
-            
-            // Perspectiva: escala e posição
-            const scale = 0.1 + (obj.progress * 1.5);
-            const y = 40 + (obj.progress * 410); // de cima para baixo
-            
-            // Posição X baseada na lane e progresso (perspectiva)
-            const laneX = [20, 50, 80][obj.lane];
-            const centerX = 50;
-            const x = centerX + (laneX - centerX) * (0.2 + obj.progress * 0.8);
-
-            obj.el.style.top = y + 'px';
-            obj.el.style.left = x + '%';
-            obj.el.style.transform = `translate(-50%, -50%) scale(${scale})`;
-            obj.el.style.opacity = Math.min(1, obj.progress * 5);
-
-            // Colisão
-            if (obj.progress > 0.85 && obj.progress < 0.95) {
-                if (obj.lane === raceState.lane) {
-                    if (obj.type === 'star') {
-                        raceState.score += 10;
-                        obj.el.remove();
-                        raceState.objects.splice(index, 1);
-                        updateRaceUI();
-                    } else if (obj.type === 'obs') {
-                        // Se for obstáculo baixo (pedra), pode pular. Se for alto (parede), não.
-                        const canJump = obj.emoji === '🪨' || obj.emoji === '📦';
-                        if (!(canJump && raceState.jumping)) {
-                            hitObstacle();
-                            obj.el.remove();
-                            raceState.objects.splice(index, 1);
-                        }
-                    }
-                }
-            }
-
-            // Remover objetos que passaram
-            if (obj.progress > 1.1) {
-                obj.el.remove();
-                raceState.objects.splice(index, 1);
-            }
+    // Registro do Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker Registrado!', reg))
+                .catch(err => console.error('Erro no Service Worker', err));
         });
     }
-
-    function spawnObject() {
-        const type = Math.random() > 0.4 ? 'obs' : 'star';
-        const lane = Math.floor(Math.random() * 3);
-        const emojis = type === 'star' ? ['⭐', '🍎', '🍌'] : ['🪨', '📦', '🚧', '🌵'];
-        const emoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-        const el = document.createElement('div');
-        el.className = 'game-obj';
-        el.innerHTML = `<span style="font-size: 3rem;">${emoji}</span>`;
-        document.getElementById('race-container').appendChild(el);
-
-        raceState.objects.push({ el, type, lane, progress: 0, emoji });
-    }
-
-    function hitObstacle() {
-        raceState.lives--;
-        updateRaceUI();
-        const container = document.getElementById('race-container');
-        container.style.filter = 'brightness(2) saturate(2)';
-        setTimeout(() => container.style.filter = '', 100);
-
-        if (raceState.lives <= 0) {
-            endRace();
-        }
-    }
-
-    function updateRaceUI() {
-        document.getElementById('race-lives').textContent = raceState.lives;
-        document.getElementById('race-score').textContent = raceState.score;
-    }
-
-    function endRace() {
-        raceState.active = false;
-        clearInterval(gameLoop);
-        document.getElementById('final-stars').textContent = raceState.score;
-        document.getElementById('final-dist').textContent = Math.floor(raceState.distance) + 'm';
-        showScreen('screen-race-over');
-    }
-
-    // ===== SISTEMA DE MODAL =====
-    let quitAction = null;
-
-    function quitGame() {
-        raceState.active = false; // Pausa
-        showModal("Parar a Corrida?", "Quer desistir agora e voltar ao menu?", () => {
-            showScreen('screen-menu');
-        });
-    }
-
-    function showModal(title, text, action) {
-        document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-text').textContent = text;
-        document.getElementById('modal-overlay').style.display = 'flex';
-        quitAction = action;
-    }
-
-    function closeModal() {
-        document.getElementById('modal-overlay').style.display = 'none';
-        if (document.getElementById('screen-race').classList.contains('active')) {
-            raceState.active = true;
-        }
-    }
-
-    function confirmQuit() {
-        document.getElementById('modal-overlay').style.display = 'none';
-        if (quitAction) quitAction();
-    }
-
-    // ===== JOGO DA MEMÓRIA =====
-    function initMemory() {
-        const emojis = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'];
-        const cards = [...emojis, ...emojis].sort(() => Math.random() - 0.5);
-        const grid = document.getElementById('memory-grid');
-        grid.innerHTML = '';
-        
-        let flipped = [];
-        cards.forEach((emoji, i) => {
-            const card = document.createElement('div');
-            card.className = 'memory-card';
-            card.textContent = emoji;
-            card.onclick = () => {
-                if (flipped.length < 2 && !card.classList.contains('flipped')) {
-                    card.classList.add('flipped');
-                    flipped.push({emoji, el: card});
-                    if (flipped.length === 2) {
-                        if (flipped[0].emoji === flipped[1].emoji) {
-                            flipped = [];
-                        } else {
-                            setTimeout(() => {
-                                flipped.forEach(f => f.el.classList.remove('flipped'));
-                                flipped = [];
-                            }, 1000);
-                        }
-                    }
-                }
-            };
-            grid.appendChild(card);
-        });
-        showScreen('screen-memory');
-    }
-
-    // ===== JOGO DE BLOCOS (SIMPLIFICADO) =====
-    let blocksCtx, blocksInterval;
-    function initBlocks() {
-        const canvas = document.getElementById('blocks-canvas');
-        blocksCtx = canvas.getContext('2d');
-        showScreen('screen-blocks');
-        // Lógica de blocos aqui (simplificada para o exemplo)
-        blocksCtx.fillStyle = '#FF6B35';
-        blocksCtx.fillRect(10, 10, 50, 50);
-    }
-    function quitBlocks() { showScreen('screen-menu'); }
-
-    // Teclado
-    window.addEventListener('keydown', e => {
-        if (!raceState.active) return;
-        if (e.key === 'ArrowLeft') moveLane(-1);
-        if (e.key === 'ArrowRight') moveLane(1);
-        if (e.key === ' ' || e.key === 'ArrowUp') jump();
-    });
-
 </script>
-
 </body>
 </html>
