@@ -68,6 +68,8 @@
         /* Big emoji */
         .hero-emoji { font-size: clamp(3rem, 15vw, 5.5rem); line-height: 1; animation: bounce 1.2s ease-in-out infinite; cursor: default; }
         @keyframes bounce { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-16px) scale(1.05);} }
+        @keyframes heroHappy { 0%{transform:scale(1);} 30%{transform:scale(1.35) rotate(10deg);} 60%{transform:scale(1.2) rotate(-8deg);} 100%{transform:scale(1);animation:bounce 1.2s ease-in-out infinite;} }
+        @keyframes heroSad { 0%{transform:scale(1);} 20%{transform:scale(0.85) translateY(8px);} 60%{transform:scale(0.9);} 100%{transform:scale(1);} }
 
         /* Grid cards */
         .grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
@@ -224,6 +226,22 @@
         </div>
     </div>
 
+    <!-- NOME DA CRIANÇA -->
+    <div id="screen-name" class="screen">
+        <h2>Qual é o seu nome? 😊</h2>
+        <div class="hero-emoji" id="name-hero">🐶</div>
+        <input id="player-name-input" type="text" maxlength="12" placeholder="Digite seu nome..."
+            style="font-family:'Fredoka One',cursive;font-size:1.6rem;text-align:center;border:3px solid #CE93D8;border-radius:20px;padding:12px 20px;width:90%;outline:none;color:#5C3D99;background:#F3E5F5;">
+        <button class="btn btn-primary" onclick="confirmName()">PRONTOS! 🚀</button>
+    </div>
+
+    <!-- CONTAGEM REGRESSIVA -->
+    <div id="screen-countdown" class="screen">
+        <div id="countdown-phase-icon" style="font-size:4rem;">🐾</div>
+        <div id="countdown-number" style="font-family:'Fredoka One',cursive;font-size:6rem;color:#FF6B9D;text-shadow:4px 4px 0 rgba(255,107,157,0.2);line-height:1;"></div>
+        <p id="countdown-label" class="subtitle"></p>
+    </div>
+
     <!-- HUB DE FASE -->
     <div id="screen-hub" class="screen">
         <div class="score-bar">
@@ -231,6 +249,7 @@
             <span class="score-val" id="hub-score">0</span>
             <span class="stars-row" id="hub-stars"></span>
         </div>
+        <p id="hub-player-name" style="font-family:'Fredoka One',cursive;font-size:1.1rem;color:#FF6B9D;"></p>
         <div class="hero-emoji" id="hub-hero">🐶</div>
         <div class="phase-msg" id="hub-msg">Fase 1 de 5</div>
         <p class="subtitle" id="hub-desc">Descubra o animal!</p>
@@ -289,13 +308,30 @@
     <div id="screen-win" class="screen">
         <h1>🎉 PARABÉNS! 🎉</h1>
         <div class="hero-emoji" id="win-hero">🐶</div>
+        <p id="win-name" style="font-family:'Fredoka One',cursive;font-size:1.4rem;color:#FF6B9D;"></p>
         <div class="score-bar" style="justify-content:center;">
             <span class="score-label">Estrelas ganhas:</span>
             <span class="score-val" id="win-score">0</span>
         </div>
         <div id="win-stars" style="font-size:2.5rem;letter-spacing:4px;"></div>
-        <p style="font-size:1rem;color:#888;font-weight:700;">Você é um herói incrível! 🌈</p>
+        <!-- Relatório por fase -->
+        <div id="win-report" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0;"></div>
+        <p style="font-size:1rem;color:#888;font-weight:700;" id="win-msg">Você é um herói incrível! 🌈</p>
+        <div id="bonus-unlock" style="display:none;background:#FFF9C4;border:3px solid #FFD700;border-radius:20px;padding:10px 18px;">
+            <p style="font-family:'Fredoka One',cursive;font-size:1.1rem;color:#E65100;">🔓 FASE BÔNUS DESBLOQUEADA!</p>
+            <button class="btn btn-secondary" onclick="setupPhaseBonus()" style="margin-top:8px;font-size:1.1rem;padding:10px 24px;">JOGAR BÔNUS 🌈</button>
+        </div>
         <button class="btn btn-primary" onclick="resetGame()">JOGAR DE NOVO! 🔄</button>
+    </div>
+
+    <!-- ===== FASE BÔNUS: Quiz de cores ===== -->
+    <div id="screen-bonus" class="screen">
+        <h2>🌈 FASE BÔNUS!</h2>
+        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="pb-lives"></div></div>
+        <div id="pb-color-show" style="width:100px;height:100px;border-radius:50%;margin:0 auto;border:5px solid rgba(0,0,0,0.1);transition:background 0.3s;"></div>
+        <p class="subtitle" id="pb-question">Que cor é essa?</p>
+        <div class="grid" id="pb-options"></div>
+        <p class="progress-label" id="pb-progress"></p>
     </div>
 
 </div>
@@ -305,11 +341,45 @@
 <script>
 // ==================== ESTADO DO JOGO ====================
 let hero = '🐶';
+let playerName = '';
 let totalScore = 0;
-let currentPhase = 1; // 1-5
+let currentPhase = 1;
 const TOTAL_PHASES = 5;
 const PHASE_ICONS = ['🐾','🎨','🎁','🧠','🔍'];
 const PHASE_NAMES = ['Animais','Cores','Tesouro','Memória','Sombras'];
+let phaseStars = [0,0,0,0,0]; // estrelas por fase
+
+// ==================== WEB AUDIO ====================
+let audioCtx = null;
+function getAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+}
+function playTone(freq, duration, type='sine', vol=0.3) {
+    try {
+        const ctx = getAudio();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = type; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.start(); osc.stop(ctx.currentTime + duration);
+    } catch(e) {}
+}
+function sfxCorrect() {
+    playTone(523, 0.12); setTimeout(()=>playTone(659,0.12),120); setTimeout(()=>playTone(784,0.2),240);
+}
+function sfxWrong() {
+    playTone(200, 0.25, 'sawtooth', 0.2);
+}
+function sfxClick() { playTone(440, 0.07, 'sine', 0.15); }
+function sfxWin() {
+    const notes = [523,659,784,1047];
+    notes.forEach((n,i) => setTimeout(()=>playTone(n,0.25),i*120));
+}
+function sfxCountdown() { playTone(330,0.15,'square',0.2); }
+function sfxGo() { playTone(660,0.35,'sine',0.35); }
 
 // ==================== UTILITÁRIOS ====================
 function showScreen(id) {
@@ -318,7 +388,7 @@ function showScreen(id) {
 }
 function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
 function rnd(max) { return Math.floor(Math.random() * max); }
-function playFeedback(parent, text) {
+function playFeedback(parent, text, good=true) {
     const el = document.createElement('div');
     el.className = 'feedback';
     el.textContent = text;
@@ -328,6 +398,7 @@ function playFeedback(parent, text) {
     parent.style.position = 'relative';
     parent.appendChild(el);
     setTimeout(() => el.remove(), 1200);
+    if (good) sfxCorrect(); else sfxWrong();
 }
 function makeLives(n, containerId) {
     const el = document.getElementById(containerId);
@@ -343,7 +414,7 @@ function getRemainingLives(containerId) {
     return (document.getElementById(containerId).innerHTML.match(/❤️/g) || []).length;
 }
 function updateHubStars() {
-    const max = 15; // 5 fases * 3 estrelas max
+    const max = 15;
     const pct = totalScore / max;
     let stars = '';
     if (pct >= 0.33) stars += '⭐';
@@ -353,6 +424,7 @@ function updateHubStars() {
 }
 function addScore(pts) {
     totalScore += pts;
+    phaseStars[currentPhase-1] = pts;
     document.getElementById('hub-score').textContent = totalScore;
     updateHubStars();
 }
@@ -365,6 +437,29 @@ function renderPhaseDots(containerId) {
         d.textContent = PHASE_ICONS[i-1];
         el.appendChild(d);
     }
+}
+
+// ==================== CONTAGEM REGRESSIVA ====================
+function showCountdown(phaseIdx, callback) {
+    showScreen('screen-countdown');
+    const icon = document.getElementById('countdown-phase-icon');
+    const num = document.getElementById('countdown-number');
+    const lbl = document.getElementById('countdown-label');
+    icon.textContent = PHASE_ICONS[phaseIdx];
+    lbl.textContent = PHASE_NAMES[phaseIdx];
+    let count = 3;
+    num.textContent = count;
+    sfxCountdown();
+    const iv = setInterval(() => {
+        count--;
+        if (count > 0) { num.textContent = count; sfxCountdown(); }
+        else {
+            clearInterval(iv);
+            num.textContent = '🚀';
+            sfxGo();
+            setTimeout(callback, 500);
+        }
+    }, 800);
 }
 
 // ==================== FLOATING STARS BG ====================
@@ -386,18 +481,40 @@ function renderPhaseDots(containerId) {
 })();
 
 // ==================== TELA INICIAL / HERÓI ====================
-function goToHero() { showScreen('screen-hero'); }
+function goToHero() { sfxClick(); showScreen('screen-hero'); }
 
 function chooseHero(e, _) {
+    sfxClick();
     hero = e;
+    document.getElementById('name-hero').textContent = e;
+    showScreen('screen-name');
+    setTimeout(() => document.getElementById('player-name-input').focus(), 300);
+}
+
+function confirmName() {
+    sfxClick();
+    const input = document.getElementById('player-name-input').value.trim();
+    playerName = input || 'Herói';
     currentPhase = 1;
     totalScore = 0;
+    phaseStars = [0,0,0,0,0];
     goToHub();
+}
+
+// Hero reaction animations
+function animateHero(type) {
+    const el = document.getElementById('hub-hero');
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    if (type === 'happy') el.style.animation = 'heroHappy 0.6s ease forwards';
+    else if (type === 'sad') el.style.animation = 'heroSad 0.5s ease forwards';
+    else el.style.animation = 'bounce 1.2s ease-in-out infinite';
 }
 
 function goToHub() {
     document.getElementById('hub-hero').textContent = hero;
     document.getElementById('hub-score').textContent = totalScore;
+    document.getElementById('hub-player-name').textContent = playerName ? `Olá, ${playerName}! 👋` : '';
     updateHubStars();
     renderPhaseDots('hub-phases');
 
@@ -411,7 +528,6 @@ function goToHub() {
     document.getElementById('hub-msg').textContent = `Fase ${currentPhase} de ${TOTAL_PHASES}: ${PHASE_NAMES[currentPhase-1]}`;
     document.getElementById('hub-desc').textContent = msgs[currentPhase-1];
 
-    // Mudar fundo por fase
     const bgs = [
         'linear-gradient(160deg,#87CEEB,#4FC3F7)',
         'linear-gradient(160deg,#FF9A9E,#FAD0C4)',
@@ -420,20 +536,24 @@ function goToHub() {
         'linear-gradient(160deg,#FDDB92,#D1FDFF)'
     ];
     document.body.style.background = bgs[currentPhase-1];
-
+    setTimeout(() => animateHero('happy'), 400);
     showScreen('screen-hub');
 }
 
 function startCurrentPhase() {
-    if (currentPhase === 1) setupPhase1();
-    else if (currentPhase === 2) setupPhase2();
-    else if (currentPhase === 3) setupPhase3();
-    else if (currentPhase === 4) setupPhase4();
-    else if (currentPhase === 5) setupPhase5();
+    sfxClick();
+    showCountdown(currentPhase - 1, () => {
+        if (currentPhase === 1) setupPhase1();
+        else if (currentPhase === 2) setupPhase2();
+        else if (currentPhase === 3) setupPhase3();
+        else if (currentPhase === 4) setupPhase4();
+        else if (currentPhase === 5) setupPhase5();
+    });
 }
 
 function phaseComplete(earnedStars) {
     addScore(earnedStars);
+    animateHero(earnedStars > 0 ? 'happy' : 'sad');
     currentPhase++;
     if (currentPhase > TOTAL_PHASES) {
         showWin();
@@ -446,14 +566,39 @@ function phaseComplete(earnedStars) {
 function showWin() {
     document.getElementById('win-hero').textContent = hero;
     document.getElementById('win-score').textContent = totalScore;
+    document.getElementById('win-name').textContent = playerName ? `${playerName}, você arrasou! 🥳` : 'Você arrasou! 🥳';
     const pct = totalScore / 15;
-    document.getElementById('win-stars').textContent = pct >= 1 ? '⭐⭐⭐' : pct >= 0.6 ? '⭐⭐' : '⭐';
-    spawnConfetti(60);
+    const starsText = pct >= 1 ? '⭐⭐⭐' : pct >= 0.6 ? '⭐⭐' : '⭐';
+    document.getElementById('win-stars').textContent = starsText;
+
+    // Relatório por fase
+    const report = document.getElementById('win-report');
+    report.innerHTML = '';
+    phaseStars.forEach((s, i) => {
+        const badge = document.createElement('div');
+        badge.style.cssText = 'background:#F3E5F5;border-radius:14px;padding:6px 12px;font-size:0.8rem;font-weight:800;color:#5C3D99;text-align:center;border:2px solid #CE93D8;';
+        badge.innerHTML = `${PHASE_ICONS[i]}<br>${'⭐'.repeat(s)||'💔'}`;
+        report.appendChild(badge);
+    });
+
+    // Mensagem personalizada
+    const msgs = pct >= 1 ? [`${playerName} é CAMPEÃO! 🏆`,'Perfeito! Incrível!'] :
+                 pct >= 0.6 ? [`Muito bem, ${playerName}!`,'Quase perfeito!'] :
+                 [`Bom trabalho, ${playerName}!`,'Continue tentando!'];
+    document.getElementById('win-msg').textContent = msgs[Math.floor(Math.random()*msgs.length)];
+
+    // Fase bônus se todas as vidas preservadas (score máximo)
+    const bonusEl = document.getElementById('bonus-unlock');
+    bonusEl.style.display = totalScore >= 12 ? 'block' : 'none';
+
+    sfxWin();
+    spawnConfetti(70);
     showScreen('screen-win');
 }
 
 function resetGame() {
-    hero = '🐶'; totalScore = 0; currentPhase = 1;
+    sfxClick();
+    hero = '🐶'; playerName = ''; totalScore = 0; currentPhase = 1; phaseStars = [0,0,0,0,0];
     showScreen('screen-start');
     document.body.style.background = 'linear-gradient(160deg,#FFB347,#FF6B9D)';
 }
@@ -536,7 +681,7 @@ function answerP1(correct, card) {
     if (correct) {
         card.style.borderColor = '#4CAF50';
         card.style.background = '#E8F5E9';
-        playFeedback(document.getElementById('screen-phase1'), '🎉 Isso!');
+        playFeedback(document.getElementById('screen-phase1'), '🎉 Isso!', true);
         spawnConfetti(15);
         setTimeout(() => {
             p1Current++;
@@ -549,7 +694,7 @@ function answerP1(correct, card) {
     } else {
         card.style.borderColor = '#EF5350';
         card.style.background = '#FFEBEE';
-        playFeedback(document.getElementById('screen-phase1'), '❌ Ops!');
+        playFeedback(document.getElementById('screen-phase1'), '❌ Ops!', false);
         p1Lives--;
         loseLife('p1-lives');
         if (p1Lives <= 0) { setTimeout(() => phaseComplete(0), 900); return; }
@@ -641,7 +786,7 @@ function playerPressColor(idx, btn) {
         p2Lives2--;
         loseLife('p2-lives');
         document.getElementById('p2-status').textContent = '😬 Ops! Tente de novo!';
-        playFeedback(document.getElementById('screen-phase2'), '❌');
+        playFeedback(document.getElementById('screen-phase2'), '❌', false);
         if (p2Lives2 <= 0) { setTimeout(() => phaseComplete(0), 800); return; }
         setTimeout(() => {
             p2PlayerInput = [];
@@ -654,6 +799,7 @@ function playerPressColor(idx, btn) {
     if (p2PlayerInput.length === p2Sequence.length) {
         // Acertou a sequência
         document.getElementById('p2-status').textContent = '🎉 Incrível!';
+        sfxCorrect();
         spawnConfetti(12);
         p2Level++;
         if (p2Level > 4) {
@@ -706,7 +852,8 @@ function setupP3Round() {
             if (isWin) {
                 c.textContent = treasure;
                 spawnConfetti(20);
-                playFeedback(document.getElementById('screen-phase3'), '🌟 Achou!');
+                sfxCorrect();
+                playFeedback(document.getElementById('screen-phase3'), '🌟 Achou!', true);
                 p3Round++;
                 if (p3Round >= p3MaxRounds) { setTimeout(() => phaseComplete(p3Lives), 1100); }
                 else { setTimeout(setupP3Round, 1200); }
@@ -714,7 +861,8 @@ function setupP3Round() {
                 c.textContent = TRAPS[rnd(TRAPS.length)];
                 p3Lives--;
                 loseLife('p3-lives');
-                playFeedback(document.getElementById('screen-phase3'), '😬 Ops!');
+                sfxWrong();
+                playFeedback(document.getElementById('screen-phase3'), '😬 Ops!', false);
                 if (p3Lives <= 0) { setTimeout(() => phaseComplete(0), 900); return; }
                 setTimeout(() => { p3CanClick = true; }, 800);
             }
@@ -772,6 +920,7 @@ function flipMemCard(card) {
             p4Flipped = [];
             p4CanFlip = true;
             p4Matched++;
+            sfxCorrect();
             document.getElementById('p4-pairs').textContent = p4Matched;
             spawnConfetti(8);
             if (p4Matched === p4Total) {
@@ -838,8 +987,7 @@ function answerP5(correct, el) {
     if (correct) {
         el.classList.add('correct-shadow');
         spawnConfetti(15);
-        playFeedback(document.getElementById('screen-phase5'), '🎉 Isso!');
-        // Reveal shadow
+        playFeedback(document.getElementById('screen-phase5'), '🎉 Isso!', true);
         document.getElementById('p5-shadow').style.filter = 'none';
         setTimeout(() => {
             document.getElementById('p5-shadow').style.filter = 'brightness(0) opacity(0.25)';
@@ -851,12 +999,86 @@ function answerP5(correct, el) {
         el.classList.add('wrong-shadow');
         p5Lives--;
         loseLife('p5-lives');
-        playFeedback(document.getElementById('screen-phase5'), '❌ Ops!');
+        playFeedback(document.getElementById('screen-phase5'), '❌ Ops!', false);
         if (p5Lives <= 0) { setTimeout(() => phaseComplete(0), 800); return; }
         setTimeout(() => {
             el.classList.remove('wrong-shadow');
             document.querySelectorAll('#p5-options .shadow-option').forEach(e => {
                 e.onclick = () => answerP5(e.textContent === p5Questions[p5Current].emoji, e);
+            });
+        }, 700);
+    }
+}
+
+// ==================== FASE BÔNUS: CORES ====================
+const BONUS_COLORS = [
+    { hex:'#EF5350', name:'Vermelho' },
+    { hex:'#42A5F5', name:'Azul' },
+    { hex:'#FFD740', name:'Amarelo' },
+    { hex:'#66BB6A', name:'Verde' },
+    { hex:'#FF9800', name:'Laranja' },
+    { hex:'#AB47BC', name:'Roxo' },
+    { hex:'#FF80AB', name:'Rosa' },
+    { hex:'#26C6DA', name:'Ciano' },
+];
+
+let pbLives, pbCurrent, pbQuestions;
+
+function setupPhaseBonus() {
+    sfxClick();
+    pbLives = 3;
+    makeLives(3, 'pb-lives');
+    pbQuestions = shuffle([...BONUS_COLORS]).slice(0, 5);
+    pbCurrent = 0;
+    showScreen('screen-bonus');
+    showBonusQuestion();
+}
+
+function showBonusQuestion() {
+    const q = pbQuestions[pbCurrent];
+    document.getElementById('pb-color-show').style.background = q.hex;
+    document.getElementById('pb-question').textContent = `Que cor é essa?`;
+    document.getElementById('pb-progress').textContent = `${pbCurrent+1} de ${pbQuestions.length}`;
+
+    const opts = [q];
+    const pool = BONUS_COLORS.filter(c => c.name !== q.name);
+    while (opts.length < 4) opts.push(pool.splice(rnd(pool.length), 1)[0]);
+    shuffle(opts);
+
+    const container = document.getElementById('pb-options');
+    container.innerHTML = '';
+    opts.forEach(opt => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<span style="font-size:1rem;font-weight:800;color:#333;">${opt.name}</span>`;
+        card.style.borderColor = opt.hex;
+        card.onclick = () => answerBonus(opt === q, card, q);
+        container.appendChild(card);
+    });
+}
+
+function answerBonus(correct, card, q) {
+    document.querySelectorAll('#pb-options .card').forEach(c => c.onclick = null);
+    if (correct) {
+        card.style.background = '#E8F5E9'; card.style.borderColor = '#4CAF50';
+        playFeedback(document.getElementById('screen-bonus'), '🌈 Isso!', true);
+        spawnConfetti(15);
+        setTimeout(() => {
+            pbCurrent++;
+            if (pbCurrent >= pbQuestions.length) {
+                sfxWin(); spawnConfetti(80);
+                setTimeout(() => { alert(`🏆 ${playerName || 'Herói'} completou a fase bônus! INCRÍVEL!`); showScreen('screen-win'); }, 500);
+            } else { showBonusQuestion(); }
+        }, 900);
+    } else {
+        card.style.background = '#FFEBEE'; card.style.borderColor = '#EF5350';
+        playFeedback(document.getElementById('screen-bonus'), '❌ Ops!', false);
+        pbLives--; loseLife('pb-lives');
+        if (pbLives <= 0) { setTimeout(() => showScreen('screen-win'), 800); return; }
+        setTimeout(() => {
+            card.style.background = 'white'; card.style.borderColor = q.hex;
+            document.querySelectorAll('#pb-options .card').forEach((c,i) => {
+                c.onclick = () => answerBonus(c.querySelector('span').textContent === q.name, c, q);
             });
         }, 700);
     }
