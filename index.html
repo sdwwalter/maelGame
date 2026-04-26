@@ -2,1464 +2,832 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aventura Kids</title>
-    <link id="manifest-link" rel="manifest" href="">
-    <meta name="theme-color" content="#FF6B9D">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
-
-        :root {
-            --sky: #87CEEB;
-            --forest: #7BC67E;
-            --beach: #FFD166;
-            --castle: #C3A6E8;
-            --ocean: #4FC3F7;
-            --fire: #FF7043;
-            --pink: #FF6B9D;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Nunito', cursive, sans-serif;
-            background: linear-gradient(160deg, #FFB347 0%, #FF6B9D 100%);
+            font-family: 'Fredoka One', cursive;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        .game-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
             display: flex;
             flex-direction: column;
+            height: 90vh;
+            max-height: 800px;
+        }
+        .screen { display: none; flex-direction: column; flex: 1; overflow: auto; padding: 20px; }
+        .screen.active { display: flex; }
+        h1, h2 { text-align: center; color: #FF6B35; margin: 10px 0; font-size: 1.8rem; }
+        .subtitle { text-align: center; color: #666; font-size: 0.95rem; margin: 5px 0; }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Fredoka One', cursive;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 8px;
+        }
+        .btn-primary { background: #4CAF50; color: white; }
+        .btn-primary:hover { background: #45a049; transform: scale(1.05); }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-danger:hover { background: #da190b; }
+        .btn-small { padding: 8px 16px; font-size: 0.9rem; }
+        .hero-emoji { font-size: 4rem; text-align: center; margin: 20px 0; }
+        .score-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            background: #f0f0f0;
+            padding: 12px;
+            border-radius: 12px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .score-label { font-size: 1.1rem; }
+        .score-val { font-size: 1.3rem; color: #FF6B35; font-weight: bold; }
+
+        /* ===== CORRIDA 3D (Para Frente) ===== */
+        #race3d-game-area {
+            width: 100%;
+            height: 300px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 30%, #90EE90 30%, #90EE90 70%, #8B7355 70%, #8B7355 100%);
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            margin: 10px 0;
+            perspective: 1000px;
+        }
+        .race3d-lane {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+        .race3d-object {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 3rem;
+            line-height: 1;
+            z-index: 10;
+        }
+        .race3d-obstacle {
+            position: absolute;
+            width: 100%;
+            height: 40px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            font-size: 2rem;
+        }
+        .race3d-hero {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 3.5rem;
+            z-index: 20;
+            line-height: 1;
+            transition: left 0.15s ease-out;
+        }
+        .race3d-road-line {
+            position: absolute;
+            width: 4px;
+            background: yellow;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0.6;
+        }
+
+        /* ===== JOGO DA MEMÓRIA ===== */
+        .memory-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .memory-card {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 12px;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-            position: relative;
+            color: white;
+            font-weight: bold;
         }
+        .memory-card:hover { transform: scale(1.05); }
+        .memory-card.flipped { background: white; color: #333; }
 
-        /* Stars BG */
-        .bg-stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
-        .star { position: absolute; font-size: 1.4rem; animation: floatStar 6s ease-in-out infinite; opacity: 0.6; }
-        @keyframes floatStar { 0%,100%{transform:translateY(0) rotate(0deg);} 50%{transform:translateY(-18px) rotate(20deg);} }
-
-        .game-container {
-            position: relative; z-index: 1;
-            width: min(480px, 96vw);
-            background: rgba(255,255,255,0.92);
-            border-radius: 32px;
-            padding: 24px 20px 28px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 5px rgba(255,255,255,0.5);
-            text-align: center;
-        }
-
-        /* Screens */
-        .screen { display: none; flex-direction: column; align-items: center; gap: 16px; }
-        .screen.active { display: flex; animation: popIn 0.45s cubic-bezier(.34,1.56,.64,1); }
-        @keyframes popIn { 0%{transform:scale(0.7);opacity:0;} 100%{transform:scale(1);opacity:1;} }
-
-        /* Typography */
-        h1 { font-family: 'Fredoka One', cursive; font-size: clamp(1.8rem, 7vw, 2.6rem); color: #FF6B9D; text-shadow: 3px 3px 0 rgba(255,107,157,0.2); line-height: 1.1; }
-        h2 { font-family: 'Fredoka One', cursive; font-size: clamp(1.4rem, 5vw, 2rem); color: #5C3D99; line-height: 1.2; }
-        .subtitle { font-size: 1rem; color: #888; font-weight: 700; }
-
-        /* Phase bar */
-        .phase-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-        .phase-dot { width: 28px; height: 28px; border-radius: 50%; background: #e0e0e0; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.3s; border: 3px solid transparent; }
-        .phase-dot.done { background: #FFD700; border-color: #FFA500; transform: scale(1.15); }
-        .phase-dot.current { background: #FF6B9D; border-color: #C2185B; transform: scale(1.25); animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,107,157,0.5);} 50%{box-shadow:0 0 0 8px rgba(255,107,157,0);} }
-
-        /* Big emoji */
-        .hero-emoji { font-size: clamp(3rem, 15vw, 5.5rem); line-height: 1; animation: bounce 1.2s ease-in-out infinite; cursor: default; }
-        @keyframes bounce { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-16px) scale(1.05);} }
-        @keyframes heroHappy { 0%{transform:scale(1);} 30%{transform:scale(1.35) rotate(10deg);} 60%{transform:scale(1.2) rotate(-8deg);} 100%{transform:scale(1);} }
-        @keyframes heroSad { 0%{transform:scale(1);} 20%{transform:scale(0.85) translateY(8px);} 60%{transform:scale(0.9);} 100%{transform:scale(1);} }
-
-        /* Grid cards */
-        .grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
-
-        .card {
+        /* ===== BLOCOS (TETRIS) ===== */
+        #blocks-canvas, #blocks-next-canvas {
+            border: 3px solid #333;
             background: white;
-            border-radius: 20px;
-            padding: 14px 18px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.1), 0 0 0 3px transparent;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
-            border: 3px solid #f0f0f0;
+            display: block;
+            margin: 10px auto;
+            border-radius: 8px;
         }
-        .card:active, .card:hover { transform: scale(0.93) rotate(-2deg); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
-        .card.selected { background: #FFF3E0; border-color: #FF9800; transform: scale(1.05); }
-        .card-emoji { font-size: clamp(2.2rem, 10vw, 3.5rem); display: block; }
-        .card-label { font-size: 0.85rem; font-weight: 800; color: #555; margin-top: 4px; }
-
-        /* Buttons */
-        .btn {
-            font-family: 'Fredoka One', cursive;
-            font-size: clamp(1.2rem, 5vw, 1.7rem);
-            padding: 14px 36px;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
-            box-shadow: 0 6px 0 rgba(0,0,0,0.15);
-            letter-spacing: 0.5px;
+        .blocks-controls {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 10px 0;
         }
-        .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
-        .btn-primary { background: linear-gradient(135deg, #FF6B9D, #FF4081); color: white; }
-        .btn-secondary { background: linear-gradient(135deg, #FFD700, #FFA000); color: #7B3F00; }
-        .btn-success { background: linear-gradient(135deg, #66BB6A, #43A047); color: white; }
-        .btn-blue { background: linear-gradient(135deg, #42A5F5, #1E88E5); color: white; }
-        .btn-small { font-size: 1rem; padding: 10px 20px; }
 
-        /* Score */
-        .score-bar { display: flex; align-items: center; gap: 10px; background: #FFF8E1; border-radius: 50px; padding: 8px 20px; border: 2px solid #FFE082; }
-        .score-label { font-weight: 800; color: #F57F17; font-size: 0.95rem; }
-        .score-val { font-family: 'Fredoka One', cursive; font-size: 1.4rem; color: #E65100; }
-        .stars-row { font-size: 1.6rem; letter-spacing: 2px; }
-
-        /* ---- FASE 1: Animal quiz ---- */
-        .sound-card { min-width: 80px; }
-
-        /* ---- FASE 2: Sequência de cores ---- */
-        .color-sequence { display: flex; gap: 10px; justify-content: center; margin: 8px 0; flex-wrap: wrap; }
-        .color-btn {
-            width: clamp(52px, 14vw, 72px);
-            height: clamp(52px, 14vw, 72px);
-            border-radius: 50%;
-            border: 4px solid transparent;
-            cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.2s;
-            font-size: 1.6rem;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 5px 0 rgba(0,0,0,0.15);
+        /* ===== MENU PRINCIPAL ===== */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
         }
-        .color-btn:active { transform: scale(0.88); }
-        .color-btn.lit { transform: scale(1.2); box-shadow: 0 0 25px 8px rgba(255,255,100,0.6); border-color: white; }
-
-        /* ---- FASE 3: Baús ---- */
-        .chest-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: 100%; }
-        .chest-card { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: white; border-radius: 20px; border: 3px solid #f0f0f0; cursor: pointer; transition: transform 0.2s; font-size: clamp(2rem, 10vw, 3rem); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
-        .chest-card:active { transform: scale(0.88) rotate(3deg); }
-        .chest-card.opened { cursor: default; border-color: #FFD700; animation: shake 0.3s ease; }
-        @keyframes shake { 0%,100%{transform:rotate(0);} 25%{transform:rotate(-8deg);} 75%{transform:rotate(8deg);} }
-
-        /* ---- FASE 4: Memória ---- */
-        .memory-grid { display: grid; gap: 8px; width: 100%; }
-        .mem-card {
-            aspect-ratio: 1;
-            background: linear-gradient(135deg, #7C4DFF, #651FFF);
+        .menu-item {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
             border-radius: 16px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: clamp(1.4rem, 6vw, 2rem);
+            text-align: center;
             cursor: pointer;
-            transition: transform 0.3s;
-            transform-style: preserve-3d;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            position: relative;
+            transition: all 0.3s;
+            border: 3px dashed #FF6B35;
         }
-        .mem-card .front, .mem-card .back {
-            position: absolute; inset: 0;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 14px;
-            backface-visibility: hidden;
+        .menu-item:hover { transform: scale(1.05); box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+        .menu-item-title { font-size: 1.3rem; margin: 10px 0; }
+        .menu-item-desc { font-size: 0.85rem; opacity: 0.9; }
+
+        /* ===== MODAL ===== */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
-        .mem-card .front { background: linear-gradient(135deg, #7C4DFF, #651FFF); font-size: 1.4rem; color: rgba(255,255,255,0.6); }
-        .mem-card .back { background: white; transform: rotateY(180deg); }
-        .mem-card.flipped { transform: rotateY(180deg); }
-        .mem-card.matched { background: #E8F5E9; }
-        .mem-card.matched .front { background: linear-gradient(135deg, #66BB6A, #43A047); }
-
-        /* ---- FASE 5: Puzzle de sombra ---- */
-        .shadow-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-        .shadow-target { font-size: 3rem; filter: brightness(0) opacity(0.25); }
-        .shadow-option { font-size: 2.2rem; cursor: pointer; padding: 10px; border-radius: 16px; background: white; border: 3px solid #eee; transition: transform 0.15s; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .shadow-option:active { transform: scale(0.88); }
-        .shadow-option.correct-shadow { border-color: #4CAF50; background: #E8F5E9; animation: bounce 0.5s; }
-        .shadow-option.wrong-shadow { border-color: #EF5350; background: #FFEBEE; animation: shakeWrong 0.3s; }
-        @keyframes shakeWrong { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-8px);} 75%{transform:translateX(8px);} }
-
-        /* ---- FASE 6: Corrida ---- */
-        #runner-game-area {
-            width: 100%; height: 180px;
-            background: linear-gradient(#87CEEB 0%, #87CEEB 65%, #7BC67E 65%, #7BC67E 100%);
-            border-bottom: 8px solid #5DAE60;
-            position: relative; overflow: hidden;
-            border-radius: 16px; margin: 16px 0;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
-            cursor: pointer;
+        #modal-overlay.hidden { display: none; }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        .runner-cloud {
-            position: absolute; font-size: 1.5rem; opacity: 0.7; animation: cloudMove 8s linear infinite;
-        }
-        @keyframes cloudMove { from { left: 100%; } to { left: -20%; } }
-        .runner-obstacle { position: absolute; bottom: 8px; font-size: 2.2rem; }
-        .runner-star { position: absolute; font-size: 1.8rem; animation: starFloat 1s ease-in-out infinite alternate; }
-        @keyframes starFloat { from { transform: translateY(0); } to { transform: translateY(-10px); } }
-        @keyframes runGround { from { background-position: 0 0; } to { background-position: -100px 0; } }
-
-        /* Win / confetti */
-        .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
-        .confetti-piece { position: absolute; width: 12px; height: 12px; top: -20px; border-radius: 3px; animation: fall 3s ease-in forwards; }
-        @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
-
-        /* Phase transition message */
-        .phase-msg { font-family: 'Fredoka One', cursive; font-size: 1.5rem; color: #5C3D99; background: #F3E5F5; padding: 10px 24px; border-radius: 50px; border: 3px solid #CE93D8; }
-
-        /* Feedback flash */
-        .feedback { font-family: 'Fredoka One', cursive; font-size: 2rem; animation: fadeUp 1.2s forwards; position: absolute; pointer-events: none; z-index: 50; }
-        @keyframes fadeUp { 0%{opacity:1;transform:translateY(0);} 100%{opacity:0;transform:translateY(-60px);} }
-
-        #install-btn { font-size: 1rem; background: linear-gradient(135deg, #66BB6A, #43A047); color: white; display: none; margin-top: 8px; padding: 10px 24px; }
-
-        .life-row { display: flex; gap: 4px; font-size: 1.4rem; justify-content: center; }
-        .progress-label { font-size: 0.85rem; color: #999; font-weight: 700; }
-
-        /* Álbum de Figurinhas */
-        .sticker-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
-        .sticker-slot {
-            aspect-ratio: 1; border-radius: 16px; border: 3px dashed #ccc;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2.5rem; background: #f9f9f9; transition: all 0.3s;
-        }
-        .sticker-slot.unlocked { border-style: solid; border-color: #FFD700; background: #FFFDE7; animation: bounce 0.6s; }
-        .sticker-slot.locked { opacity: 0.4; filter: grayscale(1); }
-
-        /* Home button */
-        .home-btn {
-            position: absolute; top: 12px; right: 12px;
-            background: rgba(255,255,255,0.9); border: none; border-radius: 50%;
-            width: 40px; height: 40px; font-size: 1.4rem; cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 10;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .home-btn:active { transform: scale(0.9); }
+        .modal-content h3 { color: #FF6B35; margin-bottom: 15px; font-size: 1.5rem; }
+        .modal-content p { color: #666; margin-bottom: 20px; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: center; }
     </style>
 </head>
 <body>
+    <div class="game-container">
+        <!-- ===== TELA INICIAL ===== -->
+        <div id="screen-start" class="screen active">
+            <h1>🌟 Aventura Kids! 🌟</h1>
+            <p class="subtitle">🚀 Escolha seu herói e divirta-se!</p>
+            <div class="hero-emoji" style="font-size:5rem;">🎮</div>
+            <button class="btn btn-primary" onclick="showHeroSelection()" style="width:90%;margin:20px auto;">JOGAR! 🎮</button>
+        </div>
 
-<div class="bg-stars" id="bgStars"></div>
-
-<div class="game-container">
-
-    <!-- TELA INICIAL -->
-    <div id="screen-start" class="screen active">
-        <h1>🌟 Aventura<br>Mágica! 🌟</h1>
-        <div class="hero-emoji">🏰</div>
-        <p class="subtitle">6 fases divertidas!</p>
-        <div class="phase-bar" id="intro-phases"></div>
-        <button class="btn btn-primary" onclick="goToHero()">JOGAR! 🎮</button>
-        <button class="btn btn-blue btn-small" onclick="showAlbum()" style="margin-top:8px;">🏆 Meu Álbum</button>
-        <button class="btn" id="install-btn">Instalar 📲</button>
-    </div>
-
-    <!-- ESCOLHA HERÓI -->
-    <div id="screen-hero" class="screen">
-        <h2>Quem é você?</h2>
-        <div class="grid">
-            <div class="card" onclick="chooseHero('🐶','Dogão')">
-                <span class="card-emoji">🐶</span><span class="card-label">Dogão</span>
-            </div>
-            <div class="card" onclick="chooseHero('🐱','Gatinha')">
-                <span class="card-emoji">🐱</span><span class="card-label">Gatinha</span>
-            </div>
-            <div class="card" onclick="chooseHero('🐰','Coelha')">
-                <span class="card-emoji">🐰</span><span class="card-label">Coelha</span>
-            </div>
-            <div class="card" onclick="chooseHero('🦊','Raposa')">
-                <span class="card-emoji">🦊</span><span class="card-label">Raposa</span>
+        <!-- ===== SELEÇÃO DE HERÓI ===== -->
+        <div id="screen-hero-select" class="screen">
+            <h2>Escolha seu Herói!</h2>
+            <div class="menu-grid" style="margin-top:30px;">
+                <div class="menu-item" onclick="selectHero('🐶')"><div style="font-size:3rem;">🐶</div><div>Dogão</div></div>
+                <div class="menu-item" onclick="selectHero('🦁')"><div style="font-size:3rem;">🦁</div><div>Leão</div></div>
+                <div class="menu-item" onclick="selectHero('🦖')"><div style="font-size:3rem;">🦖</div><div>Dino</div></div>
+                <div class="menu-item" onclick="selectHero('🦊')"><div style="font-size:3rem;">🦊</div><div>Raposa</div></div>
             </div>
         </div>
-    </div>
 
-    <!-- NOME DA CRIANÇA -->
-    <div id="screen-name" class="screen">
-        <h2>Qual é o seu nome? 😊</h2>
-        <div class="hero-emoji" id="name-hero">🐶</div>
-        <input id="player-name-input" type="text" maxlength="12" placeholder="Digite seu nome..."
-            style="font-family:'Fredoka One',cursive;font-size:1.6rem;text-align:center;border:3px solid #CE93D8;border-radius:20px;padding:12px 20px;width:90%;outline:none;color:#5C3D99;background:#F3E5F5;">
-        <button class="btn btn-primary" onclick="confirmName()">PRONTOS! 🚀</button>
-    </div>
-
-    <!-- CONTAGEM REGRESSIVA -->
-    <div id="screen-countdown" class="screen">
-        <div id="countdown-phase-icon" style="font-size:4rem;">🐾</div>
-        <div id="countdown-number" style="font-family:'Fredoka One',cursive;font-size:6rem;color:#FF6B9D;text-shadow:4px 4px 0 rgba(255,107,157,0.2);line-height:1;"></div>
-        <p id="countdown-label" class="subtitle"></p>
-    </div>
-
-    <!-- HUB DE FASE -->
-    <div id="screen-hub" class="screen">
-        <div class="score-bar">
-            <span class="score-label">⭐ Estrelas:</span>
-            <span class="score-val" id="hub-score">0</span>
-            <span class="stars-row" id="hub-stars"></span>
+        <!-- ===== NOME DO JOGADOR ===== -->
+        <div id="screen-name-input" class="screen">
+            <h2>Qual é o seu nome? 😊</h2>
+            <div class="hero-emoji" id="name-hero">🐶</div>
+            <input id="player-name-input" type="text" placeholder="Digite seu nome..." style="width:80%;margin:20px auto;padding:12px;border:2px solid #667eea;border-radius:8px;font-size:1rem;font-family:'Fredoka One',cursive;display:block;">
+            <button class="btn btn-primary" onclick="startMainMenu()" style="width:90%;margin:20px auto;">PRONTOS! 🚀</button>
         </div>
-        <p id="hub-player-name" style="font-family:'Fredoka One',cursive;font-size:1.1rem;color:#FF6B9D;"></p>
-        <div class="hero-emoji" id="hub-hero">🐶</div>
-        <div class="phase-msg" id="hub-msg">Fase 1 de 6</div>
-        <p class="subtitle" id="hub-desc">Descubra o animal!</p>
-        <div class="phase-bar" id="hub-phases"></div>
-        <button class="btn btn-secondary" id="hub-btn" onclick="startCurrentPhase()">VAMOS LÁ! 🚀</button>
-        <button class="btn btn-blue btn-small" onclick="showAlbum()" style="margin-top:8px;">🏆 Meu Álbum</button>
-    </div>
 
-    <!-- ÁLBUM DE FIGURINHAS -->
-    <div id="screen-album" class="screen">
-        <h2>🏆 Álbum de Figurinhas</h2>
-        <p class="subtitle">Complete todas as fases para ganhar mais!</p>
-        <div class="sticker-grid" id="album-grid"></div>
-        <button class="btn btn-primary" onclick="goToHub()" style="margin-top:12px;">VOLTAR 🏠</button>
-    </div>
-
-    <!-- ===== FASE 1: Qual é o animal? ===== -->
-    <div id="screen-phase1" class="screen">
-        <button class="home-btn" onclick="safeGoHome()">🏠</button>
-        <h2>🐾 Qual animal faz isso?</h2>
-        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p1-lives"></div></div>
-        <div class="hero-emoji" id="p1-sound" style="font-size:3rem;">🔊</div>
-        <p id="p1-hint" class="subtitle"></p>
-        <div class="grid" id="p1-options"></div>
-        <p class="progress-label" id="p1-progress"></p>
-    </div>
-
-    <!-- ===== FASE 2: Sequência de cores ===== -->
-    <div id="screen-phase2" class="screen">
-        <button class="home-btn" onclick="safeGoHome()">🏠</button>
-        <h2>🎨 Repita a sequência!</h2>
-        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p2-lives"></div></div>
-        <div class="color-sequence" id="p2-display"></div>
-        <p class="subtitle" id="p2-status">Olhe bem...</p>
-        <div class="color-sequence" id="p2-btns"></div>
-        <p class="progress-label" id="p2-progress"></p>
-    </div>
-
-    <!-- ===== FASE 3: Baú do tesouro ===== -->
-    <div id="screen-phase3" class="screen">
-        <button class="home-btn" onclick="safeGoHome()">🏠</button>
-        <h2>🎁 Ache o Tesouro!</h2>
-        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p3-lives"></div></div>
-        <p class="subtitle" id="p3-hint">Onde está a estrela? 🌟</p>
-        <div class="chest-grid" id="p3-chests"></div>
-        <p class="progress-label" id="p3-progress"></p>
-    </div>
-
-    <!-- ===== FASE 4: Jogo da memória ===== -->
-    <div id="screen-phase4" class="screen">
-        <button class="home-btn" onclick="safeGoHome()">🏠</button>
-        <h2>🧠 Jogo da Memória!</h2>
-        <div class="score-bar">
-            <span class="score-label">❤️</span><div class="life-row" id="p4-lives"></div>
-            <span class="score-label">Pares:</span><span class="score-val" id="p4-pairs">0</span>
-            <span class="score-label" id="p4-level-label" style="margin-left:10px;">Nível 1</span>
+        <!-- ===== MENU PRINCIPAL ===== -->
+        <div id="screen-menu" class="screen">
+            <h2 style="margin-top:10px;">Olá, <span id="menu-player-name">Teste</span>! 👋</h2>
+            <p class="subtitle">Qual jogo você quer jogar?</p>
+            <div class="menu-grid" style="margin-top:20px;">
+                <div class="menu-item" onclick="startRace3D()">
+                    <div style="font-size:2.5rem;">🏃</div>
+                    <div class="menu-item-title">Corrida</div>
+                    <div class="menu-item-desc">Desvie e colete!</div>
+                </div>
+                <div class="menu-item" onclick="startMemory()">
+                    <div style="font-size:2.5rem;">🧠</div>
+                    <div class="menu-item-title">Memória</div>
+                    <div class="menu-item-desc">Encontre os pares!</div>
+                </div>
+                <div class="menu-item" onclick="startBlocks()">
+                    <div style="font-size:2.5rem;">🧱</div>
+                    <div class="menu-item-title">Blocos</div>
+                    <div class="menu-item-desc">Construa e empilhe!</div>
+                </div>
+                <div class="menu-item" onclick="showAbout()">
+                    <div style="font-size:2.5rem;">ℹ️</div>
+                    <div class="menu-item-title">Sobre</div>
+                    <div class="menu-item-desc">Mais informações</div>
+                </div>
+            </div>
         </div>
-        <div class="memory-grid" id="p4-grid"></div>
-        <p class="progress-label" id="p4-status">Encontre os pares iguais!</p>
-    </div>
 
-    <!-- ===== FASE 5: Sombra dos animais ===== -->
-    <div id="screen-phase5" class="screen">
-        <button class="home-btn" onclick="safeGoHome()">🏠</button>
-        <h2>🔍 Qual sombra é esta?</h2>
-        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p5-lives"></div></div>
-        <div class="shadow-target" id="p5-shadow"></div>
-        <p class="subtitle">Toque no animal certo!</p>
-        <div class="shadow-row" id="p5-options"></div>
-        <p class="progress-label" id="p5-progress"></p>
-    </div>
-
-    <!-- ===== FASE 6: Corrida do Herói ===== -->
-    <div id="screen-phase6" class="screen">
-        <button class="home-btn" onclick="safeGoHome()">🏠</button>
-        <h2>🏃 Corrida Divertida!</h2>
-        <div class="score-bar">
-            <span class="score-label">❤️</span><div class="life-row" id="p6-lives"></div>
-            <span class="score-label">Estrelas:</span><span class="score-val" id="p6-score">0</span>/5
+        <!-- ===== CORRIDA 3D (PARA FRENTE) ===== -->
+        <div id="screen-race3d" class="screen">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <button class="btn btn-small" onclick="goToMenu()">🏠</button>
+                <h2 style="flex:1;margin:0;">🏃 Corrida!</h2>
+                <button class="btn btn-small" onclick="confirmQuitRace3D()">🚩</button>
+            </div>
+            <div class="score-bar">
+                <span class="score-label">❤️</span>
+                <span id="race3d-lives">❤️❤️❤️</span>
+                <span class="score-label">⭐</span>
+                <span class="score-val" id="race3d-stars">0</span>
+                <span class="score-label">📏</span>
+                <span class="score-val" id="race3d-dist">0</span>
+            </div>
+            <div id="race3d-game-area">
+                <div class="race3d-hero" id="race3d-hero">🐶</div>
+            </div>
+            <div style="text-align:center;margin-top:10px;">
+                <button class="btn btn-primary" onclick="race3dMoveLeft()">◀ Esquerda</button>
+                <button class="btn btn-primary" onclick="race3dMoveRight()">Direita ▶</button>
+            </div>
         </div>
-        <div id="runner-game-area" onclick="jumpP6()">
-            <div class="runner-cloud" style="top:10px; animation-duration:10s;">☁️</div>
-            <div class="runner-cloud" style="top:40px; animation-duration:12s; animation-delay:-5s;">☁️</div>
-            <div id="p6-hero" style="font-size: 3.5rem; position: absolute; bottom: 8px; left: 20px; transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 5;">🐶</div>
-            <div id="p6-obstacle" class="runner-obstacle" style="right: -60px; z-index: 4;">🌵</div>
-            <div id="p6-star" class="runner-star" style="right: -60px; top: 40px; z-index: 4; display: none;">⭐</div>
+
+        <!-- ===== RESULTADO DA CORRIDA 3D ===== -->
+        <div id="screen-race3d-result" class="screen">
+            <h2 id="race3d-result-title">🏁 Fim da Corrida!</h2>
+            <div class="hero-emoji" id="race3d-result-hero">🐶</div>
+            <div class="score-bar" style="justify-content:center;flex-direction:column;gap:4px;">
+                <div><span class="score-label">⭐ Estrelas coletadas: </span><span class="score-val" id="race3d-result-stars">0</span></div>
+                <div><span class="score-label">📏 Distância percorrida: </span><span class="score-val" id="race3d-result-dist">0</span><span class="score-label">m</span></div>
+            </div>
+            <p id="race3d-result-msg" class="subtitle" style="font-size:1rem;"></p>
+            <button class="btn btn-primary" onclick="startRace3D()">JOGAR DE NOVO! 🔄</button>
+            <button class="btn btn-small" style="background:#eee;color:#555;" onclick="goToMenu()">← Menu</button>
         </div>
-        <p class="subtitle">Toque no quadro azul para pular e pegar estrelas!</p>
-        <button class="btn btn-primary" onclick="jumpP6()" style="margin-top:10px;">PULAR! ⬆️</button>
+
+        <!-- ===== JOGO DA MEMÓRIA ===== -->
+        <div id="screen-memory" class="screen">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <button class="btn btn-small" onclick="goToMenu()">🏠</button>
+                <h2 style="flex:1;margin:0;text-align:center;">🧠 Memória!</h2>
+                <button class="btn btn-small" onclick="goToMenu()">🏠</button>
+            </div>
+            <div class="score-bar">
+                <span class="score-label">Nível:</span>
+                <span class="score-val" id="mem-level">1</span>
+            </div>
+            <div class="memory-grid" id="memory-grid"></div>
+        </div>
+
+        <!-- ===== BLOCOS (TETRIS) ===== -->
+        <div id="screen-blocks" class="screen">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <button class="btn btn-small" onclick="goToMenu()">🏠</button>
+                <h2 style="flex:1;margin:0;text-align:center;">🧱 Blocos!</h2>
+                <button class="btn btn-small" onclick="confirmQuitBlocks()">🚩</button>
+            </div>
+            <div class="score-bar">
+                <span class="score-label">Pontos:</span>
+                <span class="score-val" id="blocks-score">0</span>
+                <span class="score-label">Nível</span>
+                <span class="score-val" id="blocks-level">1</span>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <canvas id="blocks-canvas" width="200" height="300"></canvas>
+                <div style="text-align:center;">
+                    <p style="font-size:0.9rem;margin-bottom:10px;">Próximo:</p>
+                    <canvas id="blocks-next-canvas" width="100" height="100"></canvas>
+                </div>
+            </div>
+            <div class="blocks-controls">
+                <button class="btn btn-primary btn-small" onclick="blocksRotate()">↻</button>
+                <button class="btn btn-primary btn-small" onclick="blocksMoveLeft()">◀</button>
+                <button class="btn btn-primary btn-small" onclick="blocksMoveRight()">▶</button>
+                <button class="btn btn-primary btn-small" onclick="blocksDropFast()">▼ Descer</button>
+            </div>
+            <button class="btn btn-danger btn-small" style="width:90%;margin:10px auto;display:block;" onclick="confirmQuitBlocks()">Desistir 🚩</button>
+        </div>
+
+        <!-- ===== MODAL DE CONFIRMAÇÃO ===== -->
+        <div id="modal-overlay" class="hidden">
+            <div class="modal-content">
+                <h3 id="modal-title">Confirmar?</h3>
+                <p id="modal-msg">Tem certeza?</p>
+                <div class="modal-buttons">
+                    <button class="btn btn-primary" id="modal-confirm-btn">Sim</button>
+                    <button class="btn btn-danger" id="modal-cancel-btn">Não</button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- VITÓRIA FINAL -->
-    <div id="screen-win" class="screen">
-        <h1>🎉 PARABÉNS! 🎉</h1>
-        <div class="hero-emoji" id="win-hero">🐶</div>
-        <p id="win-name" style="font-family:'Fredoka One',cursive;font-size:1.4rem;color:#FF6B9D;"></p>
-        <div class="score-bar" style="justify-content:center;">
-            <span class="score-label">Estrelas ganhas:</span>
-            <span class="score-val" id="win-score">0</span>
-        </div>
-        <div id="win-stars" style="font-size:2.5rem;letter-spacing:4px;"></div>
-        <div id="win-report" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0;"></div>
-        <p style="font-size:1rem;color:#888;font-weight:700;" id="win-msg">Você é um herói incrível! 🌈</p>
-        <div id="bonus-unlock" style="display:none;background:#FFF9C4;border:3px solid #FFD700;border-radius:20px;padding:10px 18px;">
-            <p style="font-family:'Fredoka One',cursive;font-size:1.1rem;color:#E65100;">🔓 FASE BÔNUS DESBLOQUEADA!</p>
-            <button class="btn btn-secondary" onclick="setupPhaseBonus()" style="margin-top:8px;font-size:1.1rem;padding:10px 24px;">JOGAR BÔNUS 🌈</button>
-        </div>
-        <button class="btn btn-primary" onclick="resetGame()">JOGAR DE NOVO! 🔄</button>
-        <button class="btn btn-blue btn-small" onclick="showAlbum()" style="margin-top:8px;">🏆 Ver Álbum</button>
-    </div>
+    <script>
+        // ===== VARIÁVEIS GLOBAIS =====
+        let playerName = 'Jogador';
+        let hero = '🐶';
 
-    <!-- ===== FASE BÔNUS: Quiz de cores ===== -->
-    <div id="screen-bonus" class="screen">
-        <button class="home-btn" onclick="safeGoHome()">🏠</button>
-        <h2>🌈 FASE BÔNUS!</h2>
-        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="pb-lives"></div></div>
-        <div id="pb-color-show" style="width:100px;height:100px;border-radius:50%;margin:0 auto;border:5px solid rgba(0,0,0,0.1);transition:background 0.3s;"></div>
-        <p class="subtitle" id="pb-question">Que cor é essa?</p>
-        <div class="grid" id="pb-options"></div>
-        <p class="progress-label" id="pb-progress"></p>
-    </div>
-
-</div>
-
-<div class="confetti-container" id="confetti"></div>
-
-<script>
-// ==================== SISTEMA DE TRAVAS E ESTADO ====================
-let isTransitioning = false;
-let activeIntervals = [];
-let activeTimeouts = [];
-
-function safeShowScreen(id) {
-    // Limpa todos os intervalos e timeouts ativos
-    activeIntervals.forEach(clearInterval);
-    activeTimeouts.forEach(clearTimeout);
-    activeIntervals = [];
-    activeTimeouts = [];
-
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const nextScreen = document.getElementById(id);
-    if (nextScreen) {
-        nextScreen.classList.add('active');
-    } else {
-        console.error('Erro: Tela ' + id + ' não encontrada!');
-        document.getElementById('screen-hub').classList.add('active');
-    }
-}
-
-function safeSetInterval(fn, ms) {
-    const id = setInterval(fn, ms);
-    activeIntervals.push(id);
-    return id;
-}
-
-function safeSetTimeout(fn, ms) {
-    const id = setTimeout(fn, ms);
-    activeTimeouts.push(id);
-    return id;
-}
-
-function safeGoHome() {
-    if (isTransitioning) return;
-    sfxClick();
-    activeIntervals.forEach(clearInterval);
-    activeTimeouts.forEach(clearTimeout);
-    activeIntervals = [];
-    activeTimeouts = [];
-    goToHub();
-}
-
-// ==================== ESTADO DO JOGO ====================
-let hero = '🐶';
-let playerName = '';
-let totalScore = 0;
-let currentPhase = 1;
-const TOTAL_PHASES = 6;
-const PHASE_ICONS = ['🐾','🎨','🎁','🧠','🔍','🏃'];
-const PHASE_NAMES = ['Animais','Cores','Tesouro','Memória','Sombras','Corrida'];
-let phaseStars = [0,0,0,0,0,0];
-
-// Figurinhas
-const ALL_STICKERS = ['🐉','🚀','🦕','🦄','🌈','🎪','🦖','🛸','🧸','🎠','🦁','🐙'];
-let stickerAlbum = [];
-
-// Persistência
-function saveProgress() {
-    try {
-        localStorage.setItem('ak_totalScore', totalScore);
-        localStorage.setItem('ak_phaseStars', JSON.stringify(phaseStars));
-        localStorage.setItem('ak_stickerAlbum', JSON.stringify(stickerAlbum));
-        localStorage.setItem('ak_hero', hero);
-        localStorage.setItem('ak_playerName', playerName);
-    } catch(e) {}
-}
-
-function loadProgress() {
-    try {
-        const s = localStorage.getItem('ak_totalScore');
-        if (s !== null) totalScore = parseInt(s);
-        const ps = localStorage.getItem('ak_phaseStars');
-        if (ps) phaseStars = JSON.parse(ps);
-        const sa = localStorage.getItem('ak_stickerAlbum');
-        if (sa) stickerAlbum = JSON.parse(sa);
-        const h = localStorage.getItem('ak_hero');
-        if (h) hero = h;
-        const p = localStorage.getItem('ak_playerName');
-        if (p) playerName = p;
-    } catch(e) {}
-}
-
-// ==================== WEB AUDIO ====================
-let audioCtx = null;
-function getAudio() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    return audioCtx;
-}
-function playTone(freq, duration, type='sine', vol=0.3) {
-    try {
-        const ctx = getAudio();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = type; osc.frequency.value = freq;
-        gain.gain.setValueAtTime(vol, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-        osc.start(); osc.stop(ctx.currentTime + duration);
-    } catch(e) {}
-}
-function sfxCorrect() {
-    playTone(523, 0.12); setTimeout(()=>playTone(659,0.12),120); setTimeout(()=>playTone(784,0.2),240);
-    if (navigator.vibrate) navigator.vibrate(50);
-}
-function sfxWrong() {
-    playTone(200, 0.25, 'sawtooth', 0.2);
-    if (navigator.vibrate) navigator.vibrate([100,50,100]);
-}
-function sfxClick() { playTone(440, 0.07, 'sine', 0.15); }
-function sfxWin() {
-    const notes = [523,659,784,1047];
-    notes.forEach((n,i) => setTimeout(()=>playTone(n,0.25),i*120));
-    if (navigator.vibrate) navigator.vibrate([50,50,50,50,100]);
-}
-function sfxCountdown() { playTone(330,0.15,'square',0.2); }
-function sfxGo() { playTone(660,0.35,'sine',0.35); }
-function sfxJump() { playTone(400,0.1,'sine',0.2); setTimeout(()=>playTone(600,0.1),80); }
-function sfxCollect() { playTone(880,0.15,'sine',0.25); setTimeout(()=>playTone(1175,0.2),100); }
-
-// ==================== UTILITÁRIOS ====================
-function showScreen(id) { safeShowScreen(id); }
-function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
-function rnd(max) { return Math.floor(Math.random() * max); }
-function playFeedback(parent, text, good=true) {
-    const el = document.createElement('div');
-    el.className = 'feedback';
-    el.textContent = text;
-    el.style.left = '50%';
-    el.style.top = '30%';
-    el.style.transform = 'translateX(-50%)';
-    parent.style.position = 'relative';
-    parent.appendChild(el);
-    safeSetTimeout(() => el.remove(), 1200);
-    if (good) sfxCorrect(); else sfxWrong();
-}
-function makeLives(n, containerId) {
-    const el = document.getElementById(containerId);
-    el.innerHTML = Array(n).fill('❤️').join('');
-}
-function loseLife(containerId) {
-    const el = document.getElementById(containerId);
-    const hearts = el.innerHTML.split('❤️').filter(Boolean);
-    hearts.pop();
-    el.innerHTML = hearts.join('❤️') + (hearts.length > 0 ? '❤️' : '💔');
-}
-function getRemainingLives(containerId) {
-    return (document.getElementById(containerId).innerHTML.match(/❤️/g) || []).length;
-}
-function updateHubStars() {
-    const max = TOTAL_PHASES * 3;
-    const pct = totalScore / max;
-    let stars = '';
-    if (pct >= 0.2) stars += '⭐';
-    if (pct >= 0.5) stars += '⭐';
-    if (pct >= 0.8) stars += '⭐';
-    document.getElementById('hub-stars').textContent = stars;
-}
-function addScore(pts) {
-    totalScore += pts;
-    if (currentPhase >= 1 && currentPhase <= TOTAL_PHASES) {
-        phaseStars[currentPhase-1] = pts;
-    }
-    document.getElementById('hub-score').textContent = totalScore;
-    updateHubStars();
-    saveProgress();
-}
-function renderPhaseDots(containerId) {
-    const el = document.getElementById(containerId);
-    el.innerHTML = '';
-    for (let i = 1; i <= TOTAL_PHASES; i++) {
-        const d = document.createElement('div');
-        d.className = 'phase-dot ' + (i < currentPhase ? 'done' : i === currentPhase ? 'current' : '');
-        d.textContent = PHASE_ICONS[i-1];
-        el.appendChild(d);
-    }
-}
-
-// ==================== ÁLBUM DE FIGURINHAS ====================
-function showAlbum() {
-    sfxClick();
-    const grid = document.getElementById('album-grid');
-    grid.innerHTML = '';
-    ALL_STICKERS.forEach((s, i) => {
-        const slot = document.createElement('div');
-        slot.className = 'sticker-slot';
-        if (stickerAlbum.includes(s)) {
-            slot.classList.add('unlocked');
-            slot.textContent = s;
-        } else {
-            slot.classList.add('locked');
-            slot.textContent = '❓';
+        // ===== NAVEGAÇÃO DE TELAS =====
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
         }
-        grid.appendChild(slot);
-    });
-    showScreen('screen-album');
-}
 
-function unlockSticker() {
-    const locked = ALL_STICKERS.filter(s => !stickerAlbum.includes(s));
-    if (locked.length > 0) {
-        const newSticker = locked[rnd(locked.length)];
-        stickerAlbum.push(newSticker);
-        saveProgress();
-        return newSticker;
-    }
-    return null;
-}
-
-// ==================== CONTAGEM REGRESSIVA ====================
-function showCountdown(phaseIdx, callback) {
-    showScreen('screen-countdown');
-    const icon = document.getElementById('countdown-phase-icon');
-    const num = document.getElementById('countdown-number');
-    const lbl = document.getElementById('countdown-label');
-    icon.textContent = PHASE_ICONS[phaseIdx];
-    lbl.textContent = PHASE_NAMES[phaseIdx];
-    let count = 3;
-    num.textContent = count;
-    sfxCountdown();
-    const iv = safeSetInterval(() => {
-        count--;
-        if (count > 0) { num.textContent = count; sfxCountdown(); }
-        else {
-            clearInterval(iv);
-            activeIntervals = activeIntervals.filter(id => id !== iv);
-            num.textContent = '🚀';
-            sfxGo();
-            safeSetTimeout(callback, 500);
+        function showHeroSelection() {
+            showScreen('screen-hero-select');
         }
-    }, 800);
-}
 
-// ==================== FLOATING STARS BG ====================
-(function() {
-    const container = document.getElementById('bgStars');
-    const emojis = ['⭐','🌟','✨','💫','🎈','🎀','🍬','🦋'];
-    for (let i = 0; i < 18; i++) {
-        const s = document.createElement('div');
-        s.className = 'star';
-        s.style.left = (Math.random() * 100) + '%';
-        s.style.top = (Math.random() * 100) + '%';
-        s.style.animationDelay = (Math.random() * 5) + 's';
-        s.style.animationDuration = (3 + Math.random() * 4) + 's';
-        s.style.fontSize = (0.8 + Math.random() * 1.4) + 'rem';
-        s.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-        container.appendChild(s);
-    }
-    renderPhaseDots('intro-phases');
-})();
+        function selectHero(selectedHero) {
+            hero = selectedHero;
+            document.getElementById('name-hero').textContent = hero;
+            showScreen('screen-name-input');
+        }
 
-// ==================== TELA INICIAL / HERÓI ====================
-function goToHero() { 
-    if (isTransitioning) return;
-    sfxClick(); 
-    showScreen('screen-hero'); 
-}
+        function startMainMenu() {
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            if (nameInput) playerName = nameInput;
+            document.getElementById('menu-player-name').textContent = playerName;
+            showScreen('screen-menu');
+        }
 
-function chooseHero(e, _) {
-    sfxClick();
-    hero = e;
-    document.getElementById('name-hero').textContent = e;
-    showScreen('screen-name');
-    safeSetTimeout(() => document.getElementById('player-name-input').focus(), 300);
-}
+        function goToMenu() {
+            showScreen('screen-menu');
+        }
 
-function confirmName() {
-    sfxClick();
-    const input = document.getElementById('player-name-input').value.trim();
-    playerName = input || 'Herói';
-    currentPhase = 1;
-    totalScore = 0;
-    phaseStars = [0,0,0,0,0,0];
-    saveProgress();
-    goToHub();
-}
+        function showAbout() {
+            alert('Aventura Kids v2.0\n\nUm jogo educativo com múltiplas modalidades!\n\n🏃 Corrida: Desvie de obstáculos\n🧠 Memória: Encontre os pares\n🧱 Blocos: Empilhe e elimine linhas');
+        }
 
-// Hero reaction animations
-function animateHero(type) {
-    const el = document.getElementById('hub-hero');
-    el.style.animation = 'none';
-    void el.offsetWidth;
-    if (type === 'happy') el.style.animation = 'heroHappy 0.6s ease forwards';
-    else if (type === 'sad') el.style.animation = 'heroSad 0.5s ease forwards';
-    else el.style.animation = 'bounce 1.2s ease-in-out infinite';
-}
+        // ===== CORRIDA 3D (PARA FRENTE) =====
+        let race3dRunning = false;
+        let race3dLives = 3;
+        let race3dStars = 0;
+        let race3dDist = 0;
+        let race3dSpeed = 3;
+        let race3dHeroPos = 0; // -1 = esquerda, 0 = centro, 1 = direita
+        let race3dObjects = [];
+        let race3dGameLoop = null;
 
-function goToHub() {
-    document.getElementById('hub-hero').textContent = hero;
-    document.getElementById('hub-score').textContent = totalScore;
-    document.getElementById('hub-player-name').textContent = playerName ? `Olá, ${playerName}! 👋` : '';
-    updateHubStars();
-    renderPhaseDots('hub-phases');
+        function startRace3D() {
+            race3dRunning = true;
+            race3dLives = 3;
+            race3dStars = 0;
+            race3dDist = 0;
+            race3dSpeed = 3;
+            race3dHeroPos = 0;
+            race3dObjects = [];
+            updateRace3DUI();
+            showScreen('screen-race3d');
+            document.getElementById('race3d-hero').textContent = hero;
+            document.getElementById('race3d-result-hero').textContent = hero;
+            race3dGameLoop = setInterval(updateRace3D, 30);
+        }
 
-    const msgs = [
-        'Descubra o animal pelo som!',
-        'Repita a sequência de cores!',
-        'Ache a estrela escondida!',
-        'Encontre os pares iguais!',
-        'Adivinhe a sombra do bicho!',
-        'Corra e desvie dos obstáculos!'
-    ];
-    document.getElementById('hub-msg').textContent = `Fase ${currentPhase} de ${TOTAL_PHASES}: ${PHASE_NAMES[currentPhase-1]}`;
-    document.getElementById('hub-desc').textContent = msgs[currentPhase-1];
+        function updateRace3DUI() {
+            document.getElementById('race3d-lives').textContent = '❤️'.repeat(Math.max(0, race3dLives));
+            document.getElementById('race3d-stars').textContent = race3dStars;
+            document.getElementById('race3d-dist').textContent = race3dDist;
+        }
 
-    const bgs = [
-        'linear-gradient(160deg,#87CEEB,#4FC3F7)',
-        'linear-gradient(160deg,#FF9A9E,#FAD0C4)',
-        'linear-gradient(160deg,#A18CD1,#FBC2EB)',
-        'linear-gradient(160deg,#84FAB0,#8FD3F4)',
-        'linear-gradient(160deg,#FDDB92,#D1FDFF)',
-        'linear-gradient(160deg,#FFB347,#FF6B9D)'
-    ];
-    document.body.style.background = bgs[currentPhase-1] || bgs[0];
-    safeSetTimeout(() => animateHero('happy'), 400);
-    showScreen('screen-hub');
-}
+        function race3dMoveLeft() {
+            if (race3dHeroPos > -1) race3dHeroPos--;
+            updateHeroPosition();
+        }
 
-function startCurrentPhase() {
-    if (isTransitioning) return;
-    isTransitioning = true;
-    sfxClick();
-    showCountdown(currentPhase - 1, () => {
-        isTransitioning = false;
-        try {
-            const phaseSetupMap = {
-                1: setupPhase1,
-                2: setupPhase2,
-                3: setupPhase3,
-                4: setupPhase4,
-                5: setupPhase5,
-                6: setupPhase6
-            };
-            const setupFn = phaseSetupMap[currentPhase];
-            if (typeof setupFn === 'function') {
-                setupFn();
-            } else {
-                throw new Error('Fase ' + currentPhase + ' não possui função de setup.');
+        function race3dMoveRight() {
+            if (race3dHeroPos < 1) race3dHeroPos++;
+            updateHeroPosition();
+        }
+
+        function updateHeroPosition() {
+            const hero = document.getElementById('race3d-hero');
+            const positions = ['15%', '50%', '85%'];
+            hero.style.left = positions[race3dHeroPos + 1];
+        }
+
+        function updateRace3D() {
+            if (!race3dRunning) return;
+
+            const gameArea = document.getElementById('race3d-game-area');
+            const gameHeight = gameArea.offsetHeight;
+
+            // Gerar novos obstáculos/estrelas
+            if (Math.random() < 0.05) {
+                const isObstacle = Math.random() < 0.7;
+                const lane = Math.floor(Math.random() * 3);
+                race3dObjects.push({
+                    id: Math.random(),
+                    y: -50,
+                    lane: lane,
+                    isObstacle: isObstacle,
+                    emoji: isObstacle ? ['🌵','🪨','🦴'][Math.floor(Math.random()*3)] : '⭐'
+                });
             }
-        } catch (e) {
-            console.error('Falha ao rodar fase:', e);
-            isTransitioning = false;
-            goToHub();
-        }
-    });
-}
 
-function phaseComplete(earnedStars) {
-    addScore(earnedStars);
-    animateHero(earnedStars > 0 ? 'happy' : 'sad');
-    currentPhase++;
-    if (currentPhase > TOTAL_PHASES) {
-        // Desbloqueia figurinha ao completar o jogo
-        const newSticker = unlockSticker();
-        showWin(newSticker);
-    } else {
-        spawnConfetti(earnedStars * 10);
-        safeSetTimeout(() => goToHub(), 1800);
-    }
-}
+            // Atualizar objetos
+            race3dObjects = race3dObjects.filter(obj => {
+                obj.y += race3dSpeed;
 
-function showWin(newSticker) {
-    document.getElementById('win-hero').textContent = hero;
-    document.getElementById('win-score').textContent = totalScore;
-    document.getElementById('win-name').textContent = playerName ? `${playerName}, você arrasou! 🥳` : 'Você arrasou! 🥳';
-    const max = TOTAL_PHASES * 3;
-    const pct = totalScore / max;
-    const starsText = pct >= 1 ? '⭐⭐⭐' : pct >= 0.6 ? '⭐⭐' : '⭐';
-    document.getElementById('win-stars').textContent = starsText;
+                // Calcular escala (pseudo-3D)
+                const scale = 0.3 + (obj.y / gameHeight) * 1.2;
+                const opacity = Math.max(0, 1 - (obj.y - gameHeight) / 100);
 
-    // Relatório por fase
-    const report = document.getElementById('win-report');
-    report.innerHTML = '';
-    phaseStars.forEach((s, i) => {
-        const badge = document.createElement('div');
-        badge.style.cssText = 'background:#F3E5F5;border-radius:14px;padding:6px 12px;font-size:0.8rem;font-weight:800;color:#5C3D99;text-align:center;border:2px solid #CE93D8;';
-        badge.innerHTML = `${PHASE_ICONS[i]}<br>${'⭐'.repeat(s)||'💔'}`;
-        report.appendChild(badge);
-    });
+                // Remover se saiu da tela
+                if (obj.y > gameHeight + 100) {
+                    if (!obj.isObstacle) race3dStars++;
+                    return false;
+                }
 
-    // Mensagem personalizada
-    const msgs = pct >= 0.8 ? [`${playerName} é CAMPEÃO! 🏆`,'Perfeito! Incrível!'] :
-                 pct >= 0.5 ? [`Muito bem, ${playerName}!`,'Quase perfeito!'] :
-                 [`Bom trabalho, ${playerName}!`,'Continue tentando!'];
-    document.getElementById('win-msg').textContent = msgs[Math.floor(Math.random()*msgs.length)];
+                // Renderizar objeto
+                let el = document.getElementById(`obj-${obj.id}`);
+                if (!el) {
+                    el = document.createElement('div');
+                    el.id = `obj-${obj.id}`;
+                    el.style.position = 'absolute';
+                    el.style.zIndex = '5';
+                    el.textContent = obj.emoji;
+                    el.style.fontSize = '2rem';
+                    el.style.lineHeight = '1';
+                    gameArea.appendChild(el);
+                }
 
-    // Fase bônus se score bom
-    const bonusEl = document.getElementById('bonus-unlock');
-    bonusEl.style.display = totalScore >= 10 ? 'block' : 'none';
+                const positions = ['15%', '50%', '85%'];
+                el.style.left = positions[obj.lane];
+                el.style.top = obj.y + 'px';
+                el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                el.style.opacity = opacity;
 
-    // Mostrar figurinha nova se houver
-    if (newSticker) {
-        const stickerMsg = document.createElement('div');
-        stickerMsg.style.cssText = 'background:#FFF9C4;border:3px solid #FFD700;border-radius:16px;padding:10px 16px;margin:8px 0;font-family:"Fredoka One",cursive;color:#E65100;font-size:1.1rem;animation:bounce 0.6s;';
-        stickerMsg.textContent = `🎉 Nova figurinha: ${newSticker}!`;
-        report.parentNode.insertBefore(stickerMsg, report.nextSibling);
-        safeSetTimeout(() => { if(stickerMsg.parentNode) stickerMsg.remove(); }, 4000);
-    }
+                // Verificar colisão
+                if (obj.y > gameHeight - 80 && obj.y < gameHeight) {
+                    if (obj.lane === race3dHeroPos + 1) {
+                        if (obj.isObstacle) {
+                            race3dLives--;
+                            if (race3dLives <= 0) {
+                                endRace3D();
+                                return false;
+                            }
+                        } else {
+                            race3dStars++;
+                        }
+                        el.remove();
+                        return false;
+                    }
+                }
 
-    sfxWin();
-    spawnConfetti(70);
-    showScreen('screen-win');
-}
-
-function resetGame() {
-    sfxClick();
-    hero = '🐶'; playerName = ''; totalScore = 0; currentPhase = 1; 
-    phaseStars = [0,0,0,0,0,0];
-    stickerAlbum = [];
-    saveProgress();
-    showScreen('screen-start');
-    document.body.style.background = 'linear-gradient(160deg,#FFB347,#FF6B9D)';
-}
-
-// ==================== CONFETTI ====================
-function spawnConfetti(count) {
-    const container = document.getElementById('confetti');
-    const colors = ['#FF6B9D','#FFD700','#42A5F5','#66BB6A','#FF7043','#AB47BC'];
-    const emojis = ['⭐','🎉','✨','🌟'];
-    for (let i = 0; i < count; i++) {
-        const p = document.createElement('div');
-        p.className = 'confetti-piece';
-        if (Math.random() > 0.5) {
-            p.textContent = emojis[rnd(emojis.length)];
-            p.style.background = 'none';
-            p.style.fontSize = '1.2rem';
-            p.style.width = 'auto';
-        } else {
-            p.style.background = colors[rnd(colors.length)];
-        }
-        p.style.left = (Math.random()*100) + 'vw';
-        p.style.animationDuration = (1.5 + Math.random()*2) + 's';
-        p.style.animationDelay = (Math.random()*0.8) + 's';
-        container.appendChild(p);
-        safeSetTimeout(() => p.remove(), 4000);
-    }
-}
-
-// ==================== FASE 1: ANIMAIS ====================
-const ANIMALS = [
-    { emoji:'🐶', sound:'Au au!', hint:'Faz au au!' },
-    { emoji:'🐱', sound:'Miau!', hint:'Faz miau!' },
-    { emoji:'🐸', sound:'Coaxo!', hint:'Croooac!' },
-    { emoji:'🐄', sound:'Muuu!', hint:'Faz muuu!' },
-    { emoji:'🐔', sound:'Cocoricó!', hint:'Acorda todo mundo!' },
-    { emoji:'🦆', sound:'Quá quá!', hint:'Faz quá quá!' },
-    { emoji:'🐑', sound:'Beeee!', hint:'Faz beeee!' },
-    { emoji:'🐷', sound:'Oink!', hint:'Faz ronc ronc!' },
-    { emoji:'🦁', sound:'Roooar!', hint:'O rei da selva!' },
-    { emoji:'🐧', sound:'Squack!', hint:'Mora no gelo!' },
-    { emoji:'🐙', sound:'Blub blub!', hint:'Mora no mar!' },
-    { emoji:'🦒', sound:'Mmmm!', hint:'Tem pescoço comprido!' },
-];
-
-let p1Questions, p1Current, p1Lives;
-
-function setupPhase1() {
-    p1Lives = 3;
-    makeLives(3, 'p1-lives');
-    p1Questions = shuffle([...ANIMALS]).slice(0,5);
-    p1Current = 0;
-    showScreen('screen-phase1');
-    showP1Question();
-}
-
-function showP1Question() {
-    const q = p1Questions[p1Current];
-    document.getElementById('p1-sound').textContent = '🔊 ' + q.sound;
-    document.getElementById('p1-hint').textContent = q.hint;
-    document.getElementById('p1-progress').textContent = `Pergunta ${p1Current+1} de ${p1Questions.length}`;
-
-    const opts = [q];
-    const pool = ANIMALS.filter(a => a.emoji !== q.emoji);
-    while (opts.length < 4) {
-        const r = pool.splice(rnd(pool.length), 1)[0];
-        opts.push(r);
-    }
-    shuffle(opts);
-
-    const container = document.getElementById('p1-options');
-    container.innerHTML = '';
-    opts.forEach(opt => {
-        const card = document.createElement('div');
-        card.className = 'card sound-card';
-        card.innerHTML = `<span class="card-emoji">${opt.emoji}</span>`;
-        card.onclick = () => answerP1(opt === q, card);
-        container.appendChild(card);
-    });
-}
-
-function answerP1(correct, card) {
-    document.querySelectorAll('#p1-options .card').forEach(c => c.onclick = null);
-    if (correct) {
-        card.style.borderColor = '#4CAF50';
-        card.style.background = '#E8F5E9';
-        playFeedback(document.getElementById('screen-phase1'), '🎉 Isso!', true);
-        spawnConfetti(15);
-        safeSetTimeout(() => {
-            p1Current++;
-            if (p1Current >= p1Questions.length) {
-                phaseComplete(p1Lives);
-            } else {
-                showP1Question();
-            }
-        }, 900);
-    } else {
-        card.style.borderColor = '#EF5350';
-        card.style.background = '#FFEBEE';
-        playFeedback(document.getElementById('screen-phase1'), '❌ Ops!', false);
-        p1Lives--;
-        loseLife('p1-lives');
-        if (p1Lives <= 0) { safeSetTimeout(() => phaseComplete(0), 900); return; }
-        safeSetTimeout(() => {
-            card.style.borderColor = '#f0f0f0';
-            card.style.background = 'white';
-            document.querySelectorAll('#p1-options .card').forEach(c => {
-                c.onclick = (ev) => answerP1(ANIMALS.find(a => a.emoji === c.querySelector('.card-emoji').textContent) === p1Questions[p1Current], c);
+                return true;
             });
-        }, 700);
-    }
-}
 
-// ==================== FASE 2: SEQUÊNCIA DE CORES ====================
-const COLORS = [
-    { emoji:'🔴', bg:'#EF5350', label:'Vermelho' },
-    { emoji:'🔵', bg:'#42A5F5', label:'Azul' },
-    { emoji:'🟡', bg:'#FFD740', label:'Amarelo' },
-    { emoji:'🟢', bg:'#66BB6A', label:'Verde' },
-    { emoji:'🟠', bg:'#FF9800', label:'Laranja' },
-    { emoji:'🟣', bg:'#AB47BC', label:'Roxo' },
-];
-
-let p2Sequence, p2PlayerInput, p2Level, p2Lives2;
-
-function setupPhase2() {
-    p2Lives2 = 3;
-    makeLives(3, 'p2-lives');
-    p2Level = 1;
-    p2Sequence = [];
-    showScreen('screen-phase2');
-
-    const btns = document.getElementById('p2-btns');
-    btns.innerHTML = '';
-    COLORS.forEach((c, i) => {
-        const btn = document.createElement('div');
-        btn.className = 'color-btn';
-        btn.style.background = c.bg;
-        btn.textContent = c.emoji;
-        btn.onclick = () => playerPressColor(i, btn);
-        btns.appendChild(btn);
-    });
-
-    nextP2Round();
-}
-
-function nextP2Round() {
-    p2Sequence.push(rnd(COLORS.length));
-    p2PlayerInput = [];
-    document.getElementById('p2-status').textContent = 'Presta atenção... 👀';
-    document.getElementById('p2-progress').textContent = `Nível ${p2Level}`;
-    setP2BtnsEnabled(false);
-    showP2Sequence();
-}
-
-function showP2Sequence() {
-    const display = document.getElementById('p2-display');
-    display.innerHTML = p2Sequence.map((i, idx) => `<div style="font-size:2rem;opacity:0.3;transition:opacity 0.3s;" id="pd${idx}">${COLORS[i].emoji}</div>`).join('');
-
-    let delay = 800;
-    p2Sequence.forEach((ci, idx) => {
-        safeSetTimeout(() => {
-            const el = document.getElementById('pd'+idx);
-            if (el) { el.style.opacity = '1'; el.style.transform = 'scale(1.4)'; }
-            safeSetTimeout(() => { if(el){el.style.opacity='0.3';el.style.transform='scale(1)';} }, 500);
-        }, delay);
-        delay += 700;
-    });
-
-    safeSetTimeout(() => {
-        document.getElementById('p2-status').textContent = 'Agora é a sua vez! 🎯';
-        setP2BtnsEnabled(true);
-    }, delay + 200);
-}
-
-function setP2BtnsEnabled(on) {
-    document.querySelectorAll('#p2-btns .color-btn').forEach(b => { b.style.pointerEvents = on ? 'auto' : 'none'; b.style.opacity = on ? '1' : '0.6'; });
-}
-
-function playerPressColor(idx, btn) {
-    btn.classList.add('lit');
-    safeSetTimeout(() => btn.classList.remove('lit'), 300);
-
-    p2PlayerInput.push(idx);
-    const pos = p2PlayerInput.length - 1;
-
-    if (p2PlayerInput[pos] !== p2Sequence[pos]) {
-        p2Lives2--;
-        loseLife('p2-lives');
-        document.getElementById('p2-status').textContent = '😬 Ops! Tente de novo!';
-        playFeedback(document.getElementById('screen-phase2'), '❌', false);
-        if (p2Lives2 <= 0) { safeSetTimeout(() => phaseComplete(0), 800); return; }
-        safeSetTimeout(() => {
-            p2PlayerInput = [];
-            setP2BtnsEnabled(false);
-            showP2Sequence();
-        }, 900);
-        return;
-    }
-
-    if (p2PlayerInput.length === p2Sequence.length) {
-        document.getElementById('p2-status').textContent = '🎉 Incrível!';
-        sfxCorrect();
-        spawnConfetti(12);
-        p2Level++;
-        if (p2Level > 4) {
-            safeSetTimeout(() => phaseComplete(p2Lives2), 900);
-        } else {
-            safeSetTimeout(nextP2Round, 1000);
+            race3dDist = Math.floor(race3dDist + race3dSpeed / 10);
+            race3dSpeed = Math.min(race3dSpeed + 0.01, 8);
+            updateRace3DUI();
         }
-    }
-}
 
-// ==================== FASE 3: BAÚS ====================
-const TREASURES = ['🌟','💎','👑','🍀','🎵','🦄','🍕','🚀'];
-const TRAPS = ['💨','🕷️','😱','💤','🦨','🧅'];
+        function endRace3D() {
+            race3dRunning = false;
+            clearInterval(race3dGameLoop);
+            document.querySelectorAll('[id^="obj-"]').forEach(el => el.remove());
 
-let p3Lives, p3Round, p3MaxRounds, p3CanClick;
+            document.getElementById('race3d-result-stars').textContent = race3dStars;
+            document.getElementById('race3d-result-dist').textContent = race3dDist;
+            
+            let msg = race3dStars >= 10 ? 'Incrível! Muitas estrelas! 🌟' :
+                      race3dStars >= 5  ? 'Muito bem! Continue! 💪' :
+                                          'Boa tentativa! Tente de novo! 🎮';
+            document.getElementById('race3d-result-msg').textContent = msg;
 
-function setupPhase3() {
-    p3Lives = 3;
-    p3Round = 0;
-    p3MaxRounds = 4;
-    p3CanClick = true;
-    makeLives(3, 'p3-lives');
-    showScreen('screen-phase3');
-    setupP3Round();
-}
+            showScreen('screen-race3d-result');
+        }
 
-function setupP3Round() {
-    p3CanClick = true;
-    const container = document.getElementById('p3-chests');
-    container.innerHTML = '';
-    const nChests = 3 + Math.floor(p3Round / 2);
-    const clampedChests = Math.min(nChests, 6);
-    container.style.gridTemplateColumns = clampedChests > 3 ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)';
+        function confirmQuitRace3D() {
+            if (!race3dRunning) { goToMenu(); return; }
+            showModal(
+                '🚩 Desistir da corrida?',
+                `Você coletou ${race3dStars} ⭐ e percorreu ${race3dDist}m. Quer mesmo parar?`,
+                () => { endRace3D(); showScreen('screen-race3d-result'); },
+                () => { /* continuar */ }
+            );
+        }
 
-    document.getElementById('p3-progress').textContent = `Rodada ${p3Round+1} de ${p3MaxRounds}`;
-    document.getElementById('p3-hint').textContent = 'Onde está o tesouro? ' + TREASURES[p3Round % TREASURES.length];
+        // ===== JOGO DA MEMÓRIA =====
+        let memCards = [];
+        let memFlipped = [];
+        let memMatched = 0;
+        let memLevel = 1;
 
-    const winIdx = rnd(clampedChests);
-    const treasure = TREASURES[p3Round % TREASURES.length];
+        function startMemory() {
+            memLevel = 1;
+            memMatched = 0;
+            memFlipped = [];
+            const emojis = ['🐶','🦁','🐻','🐼','🦊','🐰','🦌','🦒'];
+            memCards = [...emojis, ...emojis].sort(() => Math.random() - 0.5);
+            renderMemoryGrid();
+            showScreen('screen-memory');
+        }
 
-    for (let i = 0; i < clampedChests; i++) {
-        const c = document.createElement('div');
-        c.className = 'chest-card';
-        c.textContent = '🎁';
-        const isWin = (i === winIdx);
-        c.onclick = () => {
-            if (!p3CanClick) return;
-            p3CanClick = false;
-            c.classList.add('opened');
-            if (isWin) {
-                c.textContent = treasure;
-                spawnConfetti(20);
-                sfxCorrect();
-                playFeedback(document.getElementById('screen-phase3'), '🌟 Achou!', true);
-                p3Round++;
-                if (p3Round >= p3MaxRounds) { safeSetTimeout(() => phaseComplete(p3Lives), 1100); }
-                else { safeSetTimeout(setupP3Round, 1200); }
-            } else {
-                c.textContent = TRAPS[rnd(TRAPS.length)];
-                p3Lives--;
-                loseLife('p3-lives');
-                sfxWrong();
-                playFeedback(document.getElementById('screen-phase3'), '😬 Ops!', false);
-                if (p3Lives <= 0) { safeSetTimeout(() => phaseComplete(0), 900); return; }
-                safeSetTimeout(() => { p3CanClick = true; }, 800);
+        function renderMemoryGrid() {
+            const grid = document.getElementById('memory-grid');
+            grid.innerHTML = '';
+            memCards.forEach((emoji, idx) => {
+                const card = document.createElement('button');
+                card.className = 'memory-card';
+                card.textContent = '?';
+                card.onclick = () => flipMemoryCard(idx, card);
+                grid.appendChild(card);
+            });
+            document.getElementById('mem-level').textContent = memLevel;
+        }
+
+        function flipMemoryCard(idx, card) {
+            if (memFlipped.length >= 2 || memFlipped.includes(idx)) return;
+            memFlipped.push(idx);
+            card.textContent = memCards[idx];
+            card.classList.add('flipped');
+
+            if (memFlipped.length === 2) {
+                setTimeout(() => {
+                    if (memCards[memFlipped[0]] === memCards[memFlipped[1]]) {
+                        memMatched++;
+                        if (memMatched === 8) {
+                            memLevel++;
+                            setTimeout(() => startMemory(), 500);
+                        }
+                    } else {
+                        document.querySelectorAll('.memory-card').forEach((c, i) => {
+                            if (memFlipped.includes(i)) {
+                                c.textContent = '?';
+                                c.classList.remove('flipped');
+                            }
+                        });
+                    }
+                    memFlipped = [];
+                }, 800);
             }
-        };
-        container.appendChild(c);
-    }
-}
+        }
 
-// ==================== FASE 4: MEMÓRIA PROGRESSIVA ====================
-const MEM_EMOJIS = ['🐶','🐱','🐸','🦊','🐰','🦋','🍎','🌈','🚗','🎈','🍕','⚽'];
+        // ===== BLOCOS (TETRIS) =====
+        const BLOCK_SIZE = 20;
+        const COLS = 10;
+        const ROWS = 15;
+        let blocksGrid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+        let blocksScore = 0;
+        let blocksLevel = 1;
+        let blocksRunning = false;
+        let currentBlock = null;
+        let nextBlock = null;
+        let blocksCanvas = null;
+        let blocksCtx = null;
+        let blocksDropInterval = null;
 
-let p4Flipped, p4Matched, p4CanFlip, p4Total, p4Level, p4Lives;
+        const TETRIS_SHAPES = [
+            [[1,1],[1,1]], // O
+            [[0,1,0],[1,1,1]], // T
+            [[1,0],[1,0],[1,1]], // L
+            [[0,1],[0,1],[1,1]], // J
+            [[1,1,0],[0,1,1]], // S
+            [[0,1,1],[1,1,0]], // Z
+            [[1],[1],[1],[1]] // I
+        ];
 
-function setupPhase4() {
-    p4Level = 1;
-    p4Lives = 3;
-    makeLives(3, 'p4-lives');
-    startP4Level();
-    showScreen('screen-phase4');
-}
+        function startBlocks() {
+            blocksGrid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+            blocksScore = 0;
+            blocksLevel = 1;
+            blocksRunning = true;
+            blocksCanvas = document.getElementById('blocks-canvas');
+            blocksCtx = blocksCanvas.getContext('2d');
+            currentBlock = generateBlock();
+            nextBlock = generateBlock();
+            updateBlocksUI();
+            showScreen('screen-blocks');
+            blocksDropInterval = setInterval(dropBlock, 800);
+            drawBlocks();
+        }
 
-function startP4Level() {
-    p4Total = p4Level === 1 ? 2 : (p4Level === 2 ? 4 : 6);
-    p4Matched = 0;
-    p4CanFlip = true;
-    p4Flipped = [];
+        function generateBlock() {
+            const shape = TETRIS_SHAPES[Math.floor(Math.random() * TETRIS_SHAPES.length)];
+            return { x: 3, y: 0, shape: shape };
+        }
 
-    const emojis = shuffle([...MEM_EMOJIS]).slice(0, p4Total);
-    const cards = shuffle([...emojis, ...emojis]);
-
-    const grid = document.getElementById('p4-grid');
-    grid.innerHTML = '';
-    grid.style.gridTemplateColumns = p4Level === 1 ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)';
-
-    document.getElementById('p4-pairs').textContent = `0/${p4Total}`;
-    document.getElementById('p4-level-label').textContent = `Nível ${p4Level}`;
-    document.getElementById('p4-status').textContent = `Nível ${p4Level}! Encontre os pares!`;
-
-    cards.forEach((emoji, idx) => {
-        const card = document.createElement('div');
-        card.className = 'mem-card';
-        card.dataset.emoji = emoji;
-        card.dataset.idx = idx;
-        card.innerHTML = `<div class="front">❓</div><div class="back">${emoji}</div>`;
-        card.onclick = () => flipMemCard(card);
-        grid.appendChild(card);
-    });
-}
-
-function flipMemCard(card) {
-    if (!p4CanFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
-
-    card.classList.add('flipped');
-    p4Flipped.push(card);
-
-    if (p4Flipped.length === 2) {
-        p4CanFlip = false;
-        const [a, b] = p4Flipped;
-        if (a.dataset.emoji === b.dataset.emoji) {
-            a.classList.add('matched'); b.classList.add('matched');
-            p4Flipped = []; p4CanFlip = true; p4Matched++;
-            sfxCorrect();
-            document.getElementById('p4-pairs').textContent = `${p4Matched}/${p4Total}`;
-            spawnConfetti(8);
-
-            if (p4Matched === p4Total) {
-                p4Level++;
-                if (p4Level > 3) {
-                    document.getElementById('p4-status').textContent = '🎉 Você venceu a memória!';
-                    safeSetTimeout(() => phaseComplete(p4Lives), 1000);
-                } else {
-                    document.getElementById('p4-status').textContent = '🎉 Muito bem! Próximo nível...';
-                    spawnConfetti(20);
-                    safeSetTimeout(() => startP4Level(), 1500);
+        function dropBlock() {
+            if (!blocksRunning) return;
+            currentBlock.y++;
+            if (checkCollision()) {
+                currentBlock.y--;
+                mergeBlock();
+                checkLines();
+                currentBlock = nextBlock;
+                nextBlock = generateBlock();
+                if (checkCollision()) {
+                    blocksRunning = false;
+                    clearInterval(blocksDropInterval);
+                    endBlocks();
                 }
             }
-        } else {
-            safeSetTimeout(() => {
-                a.classList.remove('flipped'); b.classList.remove('flipped');
-                p4Flipped = []; p4CanFlip = true;
-            }, 1000);
+            drawBlocks();
         }
-    }
-}
 
-// ==================== FASE 5: SOMBRAS ====================
-const SHADOW_ANIMALS = [
-    { emoji:'🐘', name:'Elefante' },
-    { emoji:'🦒', name:'Girafa' },
-    { emoji:'🐊', name:'Jacaré' },
-    { emoji:'🦁', name:'Leão' },
-    { emoji:'🦓', name:'Zebra' },
-    { emoji:'🐧', name:'Pinguim' },
-    { emoji:'🦅', name:'Águia' },
-    { emoji:'🐙', name:'Polvo' },
-    { emoji:'🦕', name:'Dinossauro' },
-    { emoji:'🦔', name:'Ouriço' },
-    { emoji:'🦩', name:'Flamingo' },
-    { emoji:'🦘', name:'Canguru' },
-];
-
-let p5Questions, p5Current, p5Lives;
-
-function setupPhase5() {
-    p5Lives = 3;
-    makeLives(3, 'p5-lives');
-    p5Questions = shuffle([...SHADOW_ANIMALS]).slice(0, 5);
-    p5Current = 0;
-    showScreen('screen-phase5');
-    showP5Question();
-}
-
-function showP5Question() {
-    const q = p5Questions[p5Current];
-    document.getElementById('p5-shadow').textContent = q.emoji;
-    document.getElementById('p5-progress').textContent = `Pergunta ${p5Current+1} de ${p5Questions.length}`;
-
-    const opts = [q];
-    const pool = SHADOW_ANIMALS.filter(a => a.emoji !== q.emoji);
-    while (opts.length < 4) opts.push(pool.splice(rnd(pool.length), 1)[0]);
-    shuffle(opts);
-
-    const container = document.getElementById('p5-options');
-    container.innerHTML = '';
-    opts.forEach(opt => {
-        const el = document.createElement('div');
-        el.className = 'shadow-option';
-        el.textContent = opt.emoji;
-        el.onclick = () => answerP5(opt === q, el);
-        container.appendChild(el);
-    });
-}
-
-function answerP5(correct, el) {
-    document.querySelectorAll('#p5-options .shadow-option').forEach(e => e.onclick = null);
-    if (correct) {
-        el.classList.add('correct-shadow');
-        spawnConfetti(15);
-        playFeedback(document.getElementById('screen-phase5'), '🎉 Isso!', true);
-        document.getElementById('p5-shadow').style.filter = 'none';
-        safeSetTimeout(() => {
-            document.getElementById('p5-shadow').style.filter = 'brightness(0) opacity(0.25)';
-            p5Current++;
-            if (p5Current >= p5Questions.length) { phaseComplete(p5Lives); }
-            else { showP5Question(); }
-        }, 1000);
-    } else {
-        el.classList.add('wrong-shadow');
-        p5Lives--;
-        loseLife('p5-lives');
-        playFeedback(document.getElementById('screen-phase5'), '❌ Ops!', false);
-        if (p5Lives <= 0) { safeSetTimeout(() => phaseComplete(0), 800); return; }
-        safeSetTimeout(() => {
-            el.classList.remove('wrong-shadow');
-            document.querySelectorAll('#p5-options .shadow-option').forEach(e => {
-                e.onclick = () => answerP5(e.textContent === p5Questions[p5Current].emoji, e);
-            });
-        }, 700);
-    }
-}
-
-// ==================== FASE 6: CORRIDA DO HERÓI ====================
-let p6Lives, p6Score, p6ObstacleInterval, p6CollisionInterval, p6StarInterval, isJumping = false;
-const OBSTACLES = ['🌵','🪨','🦴','🍄','🐊'];
-
-function setupPhase6() {
-    p6Lives = 3;
-    p6Score = 0;
-    makeLives(3, 'p6-lives');
-    document.getElementById('p6-score').textContent = p6Score;
-    document.getElementById('p6-hero').textContent = hero;
-    document.getElementById('p6-obstacle').style.right = '-80px';
-    document.getElementById('p6-star').style.display = 'none';
-    showScreen('screen-phase6');
-    safeSetTimeout(() => startP6Runner(), 500);
-}
-
-function jumpP6() {
-    if (isJumping) return;
-    isJumping = true;
-    sfxJump();
-    const heroEl = document.getElementById('p6-hero');
-    heroEl.style.bottom = '100px';
-    safeSetTimeout(() => {
-        heroEl.style.bottom = '8px';
-        safeSetTimeout(() => { isJumping = false; }, 200);
-    }, 450);
-}
-
-function startP6Runner() {
-    const obs = document.getElementById('p6-obstacle');
-    const star = document.getElementById('p6-star');
-    const heroEl = document.getElementById('p6-hero');
-    const gameArea = document.getElementById('runner-game-area');
-    let obsPos = -80;
-    let starPos = -80;
-    let starActive = false;
-    let speed = 4;
-
-    // Movimento do obstáculo
-    p6ObstacleInterval = safeSetInterval(() => {
-        obsPos += speed;
-        if (obsPos > gameArea.offsetWidth + 80) { 
-            obsPos = -80;
-            obs.textContent = OBSTACLES[rnd(OBSTACLES.length)];
-            speed = Math.min(speed + 0.2, 7); // Aumenta velocidade gradualmente
+        function blocksMoveLeft() {
+            currentBlock.x--;
+            if (checkCollision()) currentBlock.x++;
+            drawBlocks();
         }
-        obs.style.right = obsPos + 'px';
-    }, 20);
 
-    // Movimento da estrela
-    p6StarInterval = safeSetInterval(() => {
-        if (!starActive) {
-            if (Math.random() > 0.7) {
-                starActive = true;
-                starPos = -60;
-                star.style.display = 'block';
-                star.style.top = (30 + rnd(60)) + 'px';
+        function blocksMoveRight() {
+            currentBlock.x++;
+            if (checkCollision()) currentBlock.x--;
+            drawBlocks();
+        }
+
+        function blocksRotate() {
+            const original = currentBlock.shape;
+            currentBlock.shape = currentBlock.shape[0].map((_, i) => currentBlock.shape.map(row => row[i]).reverse());
+            if (checkCollision()) currentBlock.shape = original;
+            drawBlocks();
+        }
+
+        function blocksMoveDown() {
+            dropBlock();
+        }
+
+        function blocksDropFast() {
+            while (!checkCollision()) {
+                currentBlock.y++;
             }
-        } else {
-            starPos += speed;
-            if (starPos > gameArea.offsetWidth + 60) {
-                starActive = false;
-                star.style.display = 'none';
-            }
-            star.style.right = starPos + 'px';
+            currentBlock.y--;
+            mergeBlock();
+            checkLines();
+            currentBlock = nextBlock;
+            nextBlock = generateBlock();
+            drawBlocks();
         }
-    }, 20);
 
-    // Verificação de colisão
-    p6CollisionInterval = safeSetInterval(() => {
-        const heroRect = heroEl.getBoundingClientRect();
-        const obsRect = obs.getBoundingClientRect();
-        const starRect = star.getBoundingClientRect();
+        function checkCollision() {
+            for (let row = 0; row < currentBlock.shape.length; row++) {
+                for (let col = 0; col < currentBlock.shape[row].length; col++) {
+                    if (currentBlock.shape[row][col]) {
+                        const x = currentBlock.x + col;
+                        const y = currentBlock.y + row;
+                        if (x < 0 || x >= COLS || y >= ROWS || (y >= 0 && blocksGrid[y][x])) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
 
-        // Colisão com obstáculo (hitbox generosa)
-        if (
-            heroRect.right > obsRect.left + 15 &&
-            heroRect.left < obsRect.right - 15 &&
-            heroRect.bottom > obsRect.top + 15 &&
-            obsPos > -10 && obsPos < gameArea.offsetWidth
-        ) {
-            obsPos = -80;
-            p6Lives--;
-            loseLife('p6-lives');
-            sfxWrong();
-            playFeedback(document.getElementById('screen-phase6'), '💥 Cuidado!', false);
-
-            if (p6Lives <= 0) {
-                safeSetTimeout(() => phaseComplete(0), 800);
+        function mergeBlock() {
+            for (let row = 0; row < currentBlock.shape.length; row++) {
+                for (let col = 0; col < currentBlock.shape[row].length; col++) {
+                    if (currentBlock.shape[row][col]) {
+                        const y = currentBlock.y + row;
+                        if (y >= 0) blocksGrid[y][currentBlock.x + col] = 1;
+                    }
+                }
             }
         }
 
-        // Coleta de estrela
-        if (starActive &&
-            heroRect.right > starRect.left + 5 &&
-            heroRect.left < starRect.right - 5 &&
-            heroRect.bottom > starRect.top + 5
-        ) {
-            starActive = false;
-            star.style.display = 'none';
-            p6Score++;
-            document.getElementById('p6-score').textContent = p6Score;
-            sfxCollect();
-            spawnConfetti(10);
-            playFeedback(document.getElementById('screen-phase6'), '⭐ +1!', true);
-
-            if (p6Score >= 5) {
-                safeSetTimeout(() => phaseComplete(p6Lives), 1000);
+        function checkLines() {
+            let linesCleared = 0;
+            for (let row = ROWS - 1; row >= 0; row--) {
+                if (blocksGrid[row].every(cell => cell === 1)) {
+                    blocksGrid.splice(row, 1);
+                    blocksGrid.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                    row++;
+                }
+            }
+            if (linesCleared > 0) {
+                blocksScore += linesCleared * 100;
+                blocksLevel = Math.floor(blocksScore / 500) + 1;
+                updateBlocksUI();
             }
         }
-    }, 50);
-}
 
-// ==================== FASE BÔNUS: CORES ====================
-const BONUS_COLORS = [
-    { hex:'#EF5350', name:'Vermelho' },
-    { hex:'#42A5F5', name:'Azul' },
-    { hex:'#FFD740', name:'Amarelo' },
-    { hex:'#66BB6A', name:'Verde' },
-    { hex:'#FF9800', name:'Laranja' },
-    { hex:'#AB47BC', name:'Roxo' },
-    { hex:'#FF80AB', name:'Rosa' },
-    { hex:'#26C6DA', name:'Ciano' },
-];
+        function drawBlocks() {
+            blocksCtx.fillStyle = '#fff';
+            blocksCtx.fillRect(0, 0, blocksCanvas.width, blocksCanvas.height);
 
-let pbLives, pbCurrent, pbQuestions;
+            // Desenhar grid
+            blocksCtx.strokeStyle = '#ddd';
+            blocksCtx.lineWidth = 0.5;
+            for (let i = 0; i <= COLS; i++) {
+                blocksCtx.beginPath();
+                blocksCtx.moveTo(i * BLOCK_SIZE, 0);
+                blocksCtx.lineTo(i * BLOCK_SIZE, blocksCanvas.height);
+                blocksCtx.stroke();
+            }
 
-function setupPhaseBonus() {
-    sfxClick();
-    pbLives = 3;
-    makeLives(3, 'pb-lives');
-    pbQuestions = shuffle([...BONUS_COLORS]).slice(0, 5);
-    pbCurrent = 0;
-    showScreen('screen-bonus');
-    showBonusQuestion();
-}
+            // Desenhar blocos colocados
+            blocksCtx.fillStyle = '#667eea';
+            for (let row = 0; row < blocksGrid.length; row++) {
+                for (let col = 0; col < COLS; col++) {
+                    if (blocksGrid[row][col]) {
+                        blocksCtx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                    }
+                }
+            }
 
-function showBonusQuestion() {
-    const q = pbQuestions[pbCurrent];
-    document.getElementById('pb-color-show').style.background = q.hex;
-    document.getElementById('pb-question').textContent = `Que cor é essa?`;
-    document.getElementById('pb-progress').textContent = `${pbCurrent+1} de ${pbQuestions.length}`;
+            // Desenhar bloco atual
+            blocksCtx.fillStyle = '#764ba2';
+            for (let row = 0; row < currentBlock.shape.length; row++) {
+                for (let col = 0; col < currentBlock.shape[row].length; col++) {
+                    if (currentBlock.shape[row][col]) {
+                        const x = (currentBlock.x + col) * BLOCK_SIZE;
+                        const y = (currentBlock.y + row) * BLOCK_SIZE;
+                        if (y >= 0) blocksCtx.fillRect(x, y, BLOCK_SIZE - 1, BLOCK_SIZE - 1);
+                    }
+                }
+            }
 
-    const opts = [q];
-    const pool = BONUS_COLORS.filter(c => c.name !== q.name);
-    while (opts.length < 4) opts.push(pool.splice(rnd(pool.length), 1)[0]);
-    shuffle(opts);
+            // Desenhar próximo bloco
+            const nextCtx = document.getElementById('blocks-next-canvas').getContext('2d');
+            nextCtx.fillStyle = '#fff';
+            nextCtx.fillRect(0, 0, 100, 100);
+            nextCtx.fillStyle = '#764ba2';
+            for (let row = 0; row < nextBlock.shape.length; row++) {
+                for (let col = 0; col < nextBlock.shape[row].length; col++) {
+                    if (nextBlock.shape[row][col]) {
+                        nextCtx.fillRect(col * 20 + 20, row * 20 + 20, 19, 19);
+                    }
+                }
+            }
+        }
 
-    const container = document.getElementById('pb-options');
-    container.innerHTML = '';
-    opts.forEach(opt => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `<span style="font-size:1rem;font-weight:800;color:#333;">${opt.name}</span>`;
-        card.style.borderColor = opt.hex;
-        card.onclick = () => answerBonus(opt === q, card, q);
-        container.appendChild(card);
-    });
-}
+        function updateBlocksUI() {
+            document.getElementById('blocks-score').textContent = blocksScore;
+            document.getElementById('blocks-level').textContent = blocksLevel;
+        }
 
-function answerBonus(correct, card, q) {
-    document.querySelectorAll('#pb-options .card').forEach(c => c.onclick = null);
-    if (correct) {
-        card.style.background = '#E8F5E9'; card.style.borderColor = '#4CAF50';
-        playFeedback(document.getElementById('screen-bonus'), '🌈 Isso!', true);
-        spawnConfetti(15);
-        safeSetTimeout(() => {
-            pbCurrent++;
-            if (pbCurrent >= pbQuestions.length) {
-                sfxWin(); spawnConfetti(80);
-                safeSetTimeout(() => { 
-                    alert(`🏆 ${playerName || 'Herói'} completou a fase bônus! INCRÍVEL!`); 
-                    showScreen('screen-win'); 
-                }, 500);
-            } else { showBonusQuestion(); }
-        }, 900);
-    } else {
-        card.style.background = '#FFEBEE'; card.style.borderColor = '#EF5350';
-        playFeedback(document.getElementById('screen-bonus'), '❌ Ops!', false);
-        pbLives--; loseLife('pb-lives');
-        if (pbLives <= 0) { safeSetTimeout(() => showScreen('screen-win'), 800); return; }
-        safeSetTimeout(() => {
-            card.style.background = 'white'; card.style.borderColor = q.hex;
-            document.querySelectorAll('#pb-options .card').forEach((c,i) => {
-                c.onclick = () => answerBonus(c.querySelector('span').textContent === q.name, c, q);
-            });
-        }, 700);
-    }
-}
+        function endBlocks() {
+            showModal(
+                '🧱 Fim de Jogo!',
+                `Pontuação: ${blocksScore}\n\nQuer jogar de novo?`,
+                () => startBlocks(),
+                () => goToMenu()
+            );
+        }
 
-// ==================== PWA ====================
-const manifest = { name:"Aventura Kids",short_name:"Aventura",start_url:".",display:"standalone",background_color:"#FF6B9D",theme_color:"#FF6B9D",icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌟</text></svg>",sizes:"192x192",type:"image/svg+xml"}] };
-const manifestBlob = new Blob([JSON.stringify(manifest)],{type:'application/json'});
-document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
+        function confirmQuitBlocks() {
+            if (!blocksRunning) { goToMenu(); return; }
+            showModal(
+                '🚩 Desistir dos blocos?',
+                `Pontuação atual: ${blocksScore}. Quer mesmo parar?`,
+                () => { blocksRunning = false; clearInterval(blocksDropInterval); goToMenu(); },
+                () => { /* continuar */ }
+            );
+        }
 
-const swCode = `self.addEventListener('install',e=>e.waitUntil(self.skipWaiting()));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>new Response('Offline!')));});`;
-if('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(new Blob([swCode],{type:'text/javascript'}))).catch(()=>{});
+        // ===== MODAL =====
+        function showModal(title, msg, onConfirm, onCancel) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-msg').textContent = msg;
+            const overlay = document.getElementById('modal-overlay');
+            overlay.classList.remove('hidden');
 
-let deferredPrompt;
-const installBtn = document.getElementById('install-btn');
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.style.display='block';});
-installBtn.addEventListener('click',async()=>{if(deferredPrompt){deferredPrompt.prompt();const{outcome}=await deferredPrompt.userChoice;if(outcome==='accepted')installBtn.style.display='none';deferredPrompt=null;}});
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
 
-// Carrega progresso ao iniciar
-loadProgress();
-</script>
+            confirmBtn.onclick = () => { overlay.classList.add('hidden'); if (onConfirm) onConfirm(); };
+            cancelBtn.onclick = () => { overlay.classList.add('hidden'); if (onCancel) onCancel(); };
+        }
+
+        // Inicializar
+        showScreen('screen-start');
+    </script>
 </body>
 </html>
