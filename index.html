@@ -5,230 +5,875 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aventura Kids</title>
     <link id="manifest-link" rel="manifest" href="">
-    <meta name="theme-color" content="#87CEEB">
+    <meta name="theme-color" content="#FF6B9D">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;800&display=swap');
+
         :root {
-            --bg-color: #87CEEB; /* Azul céu */
-            --btn-color: #FFD700;
-            --text-color: #333;
+            --sky: #87CEEB;
+            --forest: #7BC67E;
+            --beach: #FFD166;
+            --castle: #C3A6E8;
+            --ocean: #4FC3F7;
+            --fire: #FF7043;
+            --pink: #FF6B9D;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+
         body {
-            font-family: 'Comic Sans MS', cursive, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            font-family: 'Nunito', cursive, sans-serif;
+            background: linear-gradient(160deg, #FFB347 0%, #FF6B9D 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             overflow: hidden;
+            position: relative;
+        }
+
+        /* Stars BG */
+        .bg-stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+        .star { position: absolute; font-size: 1.4rem; animation: floatStar 6s ease-in-out infinite; opacity: 0.6; }
+        @keyframes floatStar { 0%,100%{transform:translateY(0) rotate(0deg);} 50%{transform:translateY(-18px) rotate(20deg);} }
+
+        .game-container {
+            position: relative; z-index: 1;
+            width: min(480px, 96vw);
+            background: rgba(255,255,255,0.92);
+            border-radius: 32px;
+            padding: 24px 20px 28px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 0 0 5px rgba(255,255,255,0.5);
             text-align: center;
         }
-        .screen { display: none; flex-direction: column; align-items: center; width: 100%; padding: 20px; }
-        .active { display: flex; animation: popIn 0.5s ease; }
-        
-        h1 { font-size: 2.5rem; margin-bottom: 20px; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        h2 { font-size: 2rem; margin-bottom: 20px; color: #fff; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        
-        .emoji { font-size: 5rem; margin: 10px; cursor: pointer; transition: transform 0.2s; }
-        .emoji:active { transform: scale(0.9); }
-        
-        .grid { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
-        
-        .card {
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 20px;
-            padding: 20px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .card:active { transform: scale(0.9); }
 
-        button {
-            background-color: var(--btn-color);
+        /* Screens */
+        .screen { display: none; flex-direction: column; align-items: center; gap: 16px; }
+        .screen.active { display: flex; animation: popIn 0.45s cubic-bezier(.34,1.56,.64,1); }
+        @keyframes popIn { 0%{transform:scale(0.7);opacity:0;} 100%{transform:scale(1);opacity:1;} }
+
+        /* Typography */
+        h1 { font-family: 'Fredoka One', cursive; font-size: clamp(1.8rem, 7vw, 2.6rem); color: #FF6B9D; text-shadow: 3px 3px 0 rgba(255,107,157,0.2); line-height: 1.1; }
+        h2 { font-family: 'Fredoka One', cursive; font-size: clamp(1.4rem, 5vw, 2rem); color: #5C3D99; line-height: 1.2; }
+        .subtitle { font-size: 1rem; color: #888; font-weight: 700; }
+
+        /* Phase bar */
+        .phase-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .phase-dot { width: 28px; height: 28px; border-radius: 50%; background: #e0e0e0; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.3s; border: 3px solid transparent; }
+        .phase-dot.done { background: #FFD700; border-color: #FFA500; transform: scale(1.15); }
+        .phase-dot.current { background: #FF6B9D; border-color: #C2185B; transform: scale(1.25); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,107,157,0.5);} 50%{box-shadow:0 0 0 8px rgba(255,107,157,0);} }
+
+        /* Big emoji */
+        .hero-emoji { font-size: clamp(3rem, 15vw, 5.5rem); line-height: 1; animation: bounce 1.2s ease-in-out infinite; cursor: default; }
+        @keyframes bounce { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-16px) scale(1.05);} }
+
+        /* Grid cards */
+        .grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 14px 18px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1), 0 0 0 3px transparent;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.2s;
+            border: 3px solid #f0f0f0;
+        }
+        .card:active, .card:hover { transform: scale(0.93) rotate(-2deg); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+        .card.selected { background: #FFF3E0; border-color: #FF9800; transform: scale(1.05); }
+        .card-emoji { font-size: clamp(2.2rem, 10vw, 3.5rem); display: block; }
+        .card-label { font-size: 0.85rem; font-weight: 800; color: #555; margin-top: 4px; }
+
+        /* Buttons */
+        .btn {
+            font-family: 'Fredoka One', cursive;
+            font-size: clamp(1.2rem, 5vw, 1.7rem);
+            padding: 14px 36px;
             border: none;
             border-radius: 50px;
-            padding: 15px 40px;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #ff4500;
             cursor: pointer;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            margin-top: 20px;
-            font-family: inherit;
+            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.15);
+            letter-spacing: 0.5px;
         }
-        button:active { transform: translateY(4px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.15); }
+        .btn-primary { background: linear-gradient(135deg, #FF6B9D, #FF4081); color: white; }
+        .btn-secondary { background: linear-gradient(135deg, #FFD700, #FFA000); color: #7B3F00; }
+        .btn-success { background: linear-gradient(135deg, #66BB6A, #43A047); color: white; }
+        .btn-blue { background: linear-gradient(135deg, #42A5F5, #1E88E5); color: white; }
 
-        #install-btn { font-size: 1.2rem; background-color: #32CD32; color: white; display: none; }
+        /* Score */
+        .score-bar { display: flex; align-items: center; gap: 10px; background: #FFF8E1; border-radius: 50px; padding: 8px 20px; border: 2px solid #FFE082; }
+        .score-label { font-weight: 800; color: #F57F17; font-size: 0.95rem; }
+        .score-val { font-family: 'Fredoka One', cursive; font-size: 1.4rem; color: #E65100; }
+        .stars-row { font-size: 1.6rem; letter-spacing: 2px; }
 
-        @keyframes popIn {
-            0% { transform: scale(0.8); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
+        /* ---- FASE 1: Animal quiz ---- */
+        .sound-card { min-width: 80px; }
+
+        /* ---- FASE 2: Sequência de cores ---- */
+        .color-sequence { display: flex; gap: 10px; justify-content: center; margin: 8px 0; flex-wrap: wrap; }
+        .color-btn {
+            width: clamp(52px, 14vw, 72px);
+            height: clamp(52px, 14vw, 72px);
+            border-radius: 50%;
+            border: 4px solid transparent;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s;
+            font-size: 1.6rem;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 5px 0 rgba(0,0,0,0.15);
         }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+        .color-btn:active { transform: scale(0.88); }
+        .color-btn.lit { transform: scale(1.2); box-shadow: 0 0 25px 8px rgba(255,255,100,0.6); border-color: white; }
+
+        /* ---- FASE 3: Baús (já existente, melhorado) ---- */
+        .chest-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; width: 100%; }
+        .chest-card { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: white; border-radius: 20px; border: 3px solid #f0f0f0; cursor: pointer; transition: transform 0.2s; font-size: clamp(2rem, 10vw, 3rem); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+        .chest-card:active { transform: scale(0.88) rotate(3deg); }
+        .chest-card.opened { cursor: default; border-color: #FFD700; animation: shake 0.3s ease; }
+        @keyframes shake { 0%,100%{transform:rotate(0);} 25%{transform:rotate(-8deg);} 75%{transform:rotate(8deg);} }
+
+        /* ---- FASE 4: Memória ---- */
+        .memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+        .mem-card {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #7C4DFF, #651FFF);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(1.4rem, 6vw, 2rem);
+            cursor: pointer;
+            transition: transform 0.3s;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            position: relative;
         }
-        .bounce { animation: bounce 1s infinite; }
+        .mem-card .front, .mem-card .back {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 14px;
+            backface-visibility: hidden;
+        }
+        .mem-card .front { background: linear-gradient(135deg, #7C4DFF, #651FFF); font-size: 1.4rem; color: rgba(255,255,255,0.6); }
+        .mem-card .back { background: white; transform: rotateY(180deg); }
+        .mem-card.flipped { transform: rotateY(180deg); }
+        .mem-card.matched { background: #E8F5E9; }
+        .mem-card.matched .front { background: linear-gradient(135deg, #66BB6A, #43A047); }
+
+        /* ---- FASE 5: Puzzle de sombra ---- */
+        .shadow-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .shadow-target { font-size: 3rem; filter: brightness(0) opacity(0.25); }
+        .shadow-option { font-size: 2.2rem; cursor: pointer; padding: 10px; border-radius: 16px; background: white; border: 3px solid #eee; transition: transform 0.15s; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .shadow-option:active { transform: scale(0.88); }
+        .shadow-option.correct-shadow { border-color: #4CAF50; background: #E8F5E9; animation: bounce 0.5s; }
+        .shadow-option.wrong-shadow { border-color: #EF5350; background: #FFEBEE; animation: shakeWrong 0.3s; }
+        @keyframes shakeWrong { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-8px);} 75%{transform:translateX(8px);} }
+
+        /* Win / confetti */
+        .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+        .confetti-piece { position: absolute; width: 12px; height: 12px; top: -20px; border-radius: 3px; animation: fall 3s ease-in forwards; }
+        @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+
+        /* Phase transition message */
+        .phase-msg { font-family: 'Fredoka One', cursive; font-size: 1.5rem; color: #5C3D99; background: #F3E5F5; padding: 10px 24px; border-radius: 50px; border: 3px solid #CE93D8; }
+
+        /* Feedback flash */
+        .feedback { font-family: 'Fredoka One', cursive; font-size: 2rem; animation: fadeUp 1.2s forwards; position: absolute; pointer-events: none; }
+        @keyframes fadeUp { 0%{opacity:1;transform:translateY(0);} 100%{opacity:0;transform:translateY(-60px);} }
+
+        #install-btn { font-size: 1rem; background: linear-gradient(135deg, #66BB6A, #43A047); color: white; display: none; margin-top: 8px; padding: 10px 24px; }
+
+        .life-row { display: flex; gap: 4px; font-size: 1.4rem; justify-content: center; }
+        .progress-label { font-size: 0.85rem; color: #999; font-weight: 700; }
     </style>
 </head>
 <body>
 
+<div class="bg-stars" id="bgStars"></div>
+
+<div class="game-container">
+
+    <!-- TELA INICIAL -->
     <div id="screen-start" class="screen active">
-        <h1>🌟 Aventura Mágica 🌟</h1>
-        <div class="emoji bounce">🏰</div>
-        <button onclick="startGame()">JOGAR!</button>
-        <button id="install-btn">Instalar Jogo 📲</button>
+        <h1>🌟 Aventura<br>Mágica! 🌟</h1>
+        <div class="hero-emoji">🏰</div>
+        <p class="subtitle">5 fases divertidas!</p>
+        <div class="phase-bar" id="intro-phases"></div>
+        <button class="btn btn-primary" onclick="goToHero()">JOGAR! 🎮</button>
+        <button class="btn" id="install-btn">Instalar 📲</button>
     </div>
 
+    <!-- ESCOLHA HERÓI -->
     <div id="screen-hero" class="screen">
         <h2>Quem é você?</h2>
         <div class="grid">
-            <div class="card" onclick="chooseHero('🐶')"><div class="emoji">🐶</div></div>
-            <div class="card" onclick="chooseHero('🐱')"><div class="emoji">🐱</div></div>
-            <div class="card" onclick="chooseHero('🐰')"><div class="emoji">🐰</div></div>
-        </div>
-    </div>
-
-    <div id="screen-place" class="screen">
-        <h2>Onde vamos?</h2>
-        <div class="grid">
-            <div class="card" onclick="choosePlace('🌲')"><div class="emoji">🌲</div></div>
-            <div class="card" onclick="choosePlace('🏖️')"><div class="emoji">🏖️</div></div>
-        </div>
-    </div>
-
-    <div id="screen-game" class="screen">
-        <h2>Ache a Estrela!</h2>
-        <div class="grid" id="chests-container">
+            <div class="card" onclick="chooseHero('🐶','Dogão')">
+                <span class="card-emoji">🐶</span><span class="card-label">Dogão</span>
             </div>
+            <div class="card" onclick="chooseHero('🐱','Gatinha')">
+                <span class="card-emoji">🐱</span><span class="card-label">Gatinha</span>
+            </div>
+            <div class="card" onclick="chooseHero('🐰','Coelha')">
+                <span class="card-emoji">🐰</span><span class="card-label">Coelha</span>
+            </div>
+            <div class="card" onclick="chooseHero('🦊','Raposa')">
+                <span class="card-emoji">🦊</span><span class="card-label">Raposa</span>
+            </div>
+        </div>
     </div>
 
+    <!-- HUB DE FASE -->
+    <div id="screen-hub" class="screen">
+        <div class="score-bar">
+            <span class="score-label">⭐ Estrelas:</span>
+            <span class="score-val" id="hub-score">0</span>
+            <span class="stars-row" id="hub-stars"></span>
+        </div>
+        <div class="hero-emoji" id="hub-hero">🐶</div>
+        <div class="phase-msg" id="hub-msg">Fase 1 de 5</div>
+        <p class="subtitle" id="hub-desc">Descubra o animal!</p>
+        <div class="phase-bar" id="hub-phases"></div>
+        <button class="btn btn-secondary" id="hub-btn" onclick="startCurrentPhase()">VAMOS LÁ! 🚀</button>
+    </div>
+
+    <!-- ===== FASE 1: Qual é o animal? ===== -->
+    <div id="screen-phase1" class="screen">
+        <h2>🐾 Qual animal faz isso?</h2>
+        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p1-lives"></div></div>
+        <div class="hero-emoji" id="p1-sound" style="font-size:3rem;">🔊</div>
+        <p id="p1-hint" class="subtitle"></p>
+        <div class="grid" id="p1-options"></div>
+        <p class="progress-label" id="p1-progress"></p>
+    </div>
+
+    <!-- ===== FASE 2: Sequência de cores ===== -->
+    <div id="screen-phase2" class="screen">
+        <h2>🎨 Repita a sequência!</h2>
+        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p2-lives"></div></div>
+        <div class="color-sequence" id="p2-display"></div>
+        <p class="subtitle" id="p2-status">Olhe bem...</p>
+        <div class="color-sequence" id="p2-btns"></div>
+        <p class="progress-label" id="p2-progress"></p>
+    </div>
+
+    <!-- ===== FASE 3: Baú do tesouro ===== -->
+    <div id="screen-phase3" class="screen">
+        <h2>🎁 Ache o Tesouro!</h2>
+        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p3-lives"></div></div>
+        <p class="subtitle" id="p3-hint">Onde está a estrela? 🌟</p>
+        <div class="chest-grid" id="p3-chests"></div>
+        <p class="progress-label" id="p3-progress"></p>
+    </div>
+
+    <!-- ===== FASE 4: Jogo da memória ===== -->
+    <div id="screen-phase4" class="screen">
+        <h2>🧠 Jogo da Memória!</h2>
+        <div class="score-bar"><span class="score-label">Pares:</span><span class="score-val" id="p4-pairs">0</span></div>
+        <div class="memory-grid" id="p4-grid"></div>
+        <p class="progress-label" id="p4-status">Encontre os pares iguais!</p>
+    </div>
+
+    <!-- ===== FASE 5: Sombra dos animais ===== -->
+    <div id="screen-phase5" class="screen">
+        <h2>🔍 Qual sombra é esta?</h2>
+        <div class="score-bar"><span class="score-label">❤️</span><div class="life-row" id="p5-lives"></div></div>
+        <div class="shadow-target" id="p5-shadow"></div>
+        <p class="subtitle">Toque no animal certo!</p>
+        <div class="shadow-row" id="p5-options"></div>
+        <p class="progress-label" id="p5-progress"></p>
+    </div>
+
+    <!-- VITÓRIA FINAL -->
     <div id="screen-win" class="screen">
-        <h1>🎉 Você Venceu! 🎉</h1>
-        <div class="emoji bounce" id="win-hero">🐶</div>
-        <h2 id="win-place">🌟</h2>
-        <button onclick="resetGame()">De Novo!</button>
+        <h1>🎉 PARABÉNS! 🎉</h1>
+        <div class="hero-emoji" id="win-hero">🐶</div>
+        <div class="score-bar" style="justify-content:center;">
+            <span class="score-label">Estrelas ganhas:</span>
+            <span class="score-val" id="win-score">0</span>
+        </div>
+        <div id="win-stars" style="font-size:2.5rem;letter-spacing:4px;"></div>
+        <p style="font-size:1rem;color:#888;font-weight:700;">Você é um herói incrível! 🌈</p>
+        <button class="btn btn-primary" onclick="resetGame()">JOGAR DE NOVO! 🔄</button>
     </div>
 
-    <script>
-        // --- Lógica do Jogo RPG Infantil ---
-        let playerHero = '';
-        let playerPlace = '';
+</div>
 
-        function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(screenId).classList.add('active');
+<div class="confetti-container" id="confetti"></div>
+
+<script>
+// ==================== ESTADO DO JOGO ====================
+let hero = '🐶';
+let totalScore = 0;
+let currentPhase = 1; // 1-5
+const TOTAL_PHASES = 5;
+const PHASE_ICONS = ['🐾','🎨','🎁','🧠','🔍'];
+const PHASE_NAMES = ['Animais','Cores','Tesouro','Memória','Sombras'];
+
+// ==================== UTILITÁRIOS ====================
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
+function rnd(max) { return Math.floor(Math.random() * max); }
+function playFeedback(parent, text) {
+    const el = document.createElement('div');
+    el.className = 'feedback';
+    el.textContent = text;
+    el.style.left = '50%';
+    el.style.top = '30%';
+    el.style.transform = 'translateX(-50%)';
+    parent.style.position = 'relative';
+    parent.appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+}
+function makeLives(n, containerId) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = Array(n).fill('❤️').join('');
+}
+function loseLife(containerId) {
+    const el = document.getElementById(containerId);
+    const hearts = el.innerHTML.split('❤️').filter(Boolean);
+    hearts.pop();
+    el.innerHTML = hearts.join('❤️') + (hearts.length > 0 ? '❤️' : '💔');
+}
+function getRemainingLives(containerId) {
+    return (document.getElementById(containerId).innerHTML.match(/❤️/g) || []).length;
+}
+function updateHubStars() {
+    const max = 15; // 5 fases * 3 estrelas max
+    const pct = totalScore / max;
+    let stars = '';
+    if (pct >= 0.33) stars += '⭐';
+    if (pct >= 0.66) stars += '⭐';
+    if (pct >= 1.0) stars += '⭐';
+    document.getElementById('hub-stars').textContent = stars;
+}
+function addScore(pts) {
+    totalScore += pts;
+    document.getElementById('hub-score').textContent = totalScore;
+    updateHubStars();
+}
+function renderPhaseDots(containerId) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    for (let i = 1; i <= TOTAL_PHASES; i++) {
+        const d = document.createElement('div');
+        d.className = 'phase-dot ' + (i < currentPhase ? 'done' : i === currentPhase ? 'current' : '');
+        d.textContent = PHASE_ICONS[i-1];
+        el.appendChild(d);
+    }
+}
+
+// ==================== FLOATING STARS BG ====================
+(function() {
+    const container = document.getElementById('bgStars');
+    const emojis = ['⭐','🌟','✨','💫','🎈','🎀','🍬','🦋'];
+    for (let i = 0; i < 18; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        s.style.left = (Math.random() * 100) + '%';
+        s.style.top = (Math.random() * 100) + '%';
+        s.style.animationDelay = (Math.random() * 5) + 's';
+        s.style.animationDuration = (3 + Math.random() * 4) + 's';
+        s.style.fontSize = (0.8 + Math.random() * 1.4) + 'rem';
+        s.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        container.appendChild(s);
+    }
+    renderPhaseDots('intro-phases');
+})();
+
+// ==================== TELA INICIAL / HERÓI ====================
+function goToHero() { showScreen('screen-hero'); }
+
+function chooseHero(e, _) {
+    hero = e;
+    currentPhase = 1;
+    totalScore = 0;
+    goToHub();
+}
+
+function goToHub() {
+    document.getElementById('hub-hero').textContent = hero;
+    document.getElementById('hub-score').textContent = totalScore;
+    updateHubStars();
+    renderPhaseDots('hub-phases');
+
+    const msgs = [
+        'Descubra o animal pelo som!',
+        'Repita a sequência de cores!',
+        'Ache a estrela escondida!',
+        'Encontre os pares iguais!',
+        'Adivinhe a sombra do bicho!'
+    ];
+    document.getElementById('hub-msg').textContent = `Fase ${currentPhase} de ${TOTAL_PHASES}: ${PHASE_NAMES[currentPhase-1]}`;
+    document.getElementById('hub-desc').textContent = msgs[currentPhase-1];
+
+    // Mudar fundo por fase
+    const bgs = [
+        'linear-gradient(160deg,#87CEEB,#4FC3F7)',
+        'linear-gradient(160deg,#FF9A9E,#FAD0C4)',
+        'linear-gradient(160deg,#A18CD1,#FBC2EB)',
+        'linear-gradient(160deg,#84FAB0,#8FD3F4)',
+        'linear-gradient(160deg,#FDDB92,#D1FDFF)'
+    ];
+    document.body.style.background = bgs[currentPhase-1];
+
+    showScreen('screen-hub');
+}
+
+function startCurrentPhase() {
+    if (currentPhase === 1) setupPhase1();
+    else if (currentPhase === 2) setupPhase2();
+    else if (currentPhase === 3) setupPhase3();
+    else if (currentPhase === 4) setupPhase4();
+    else if (currentPhase === 5) setupPhase5();
+}
+
+function phaseComplete(earnedStars) {
+    addScore(earnedStars);
+    currentPhase++;
+    if (currentPhase > TOTAL_PHASES) {
+        showWin();
+    } else {
+        spawnConfetti(earnedStars * 10);
+        setTimeout(() => goToHub(), 1800);
+    }
+}
+
+function showWin() {
+    document.getElementById('win-hero').textContent = hero;
+    document.getElementById('win-score').textContent = totalScore;
+    const pct = totalScore / 15;
+    document.getElementById('win-stars').textContent = pct >= 1 ? '⭐⭐⭐' : pct >= 0.6 ? '⭐⭐' : '⭐';
+    spawnConfetti(60);
+    showScreen('screen-win');
+}
+
+function resetGame() {
+    hero = '🐶'; totalScore = 0; currentPhase = 1;
+    showScreen('screen-start');
+    document.body.style.background = 'linear-gradient(160deg,#FFB347,#FF6B9D)';
+}
+
+// ==================== CONFETTI ====================
+function spawnConfetti(count) {
+    const container = document.getElementById('confetti');
+    const colors = ['#FF6B9D','#FFD700','#42A5F5','#66BB6A','#FF7043','#AB47BC'];
+    const emojis = ['⭐','🎉','✨','🌟'];
+    for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'confetti-piece';
+        if (Math.random() > 0.5) {
+            p.textContent = emojis[rnd(emojis.length)];
+            p.style.background = 'none';
+            p.style.fontSize = '1.2rem';
+            p.style.width = 'auto';
+        } else {
+            p.style.background = colors[rnd(colors.length)];
         }
+        p.style.left = (Math.random()*100) + 'vw';
+        p.style.animationDuration = (1.5 + Math.random()*2) + 's';
+        p.style.animationDelay = (Math.random()*0.8) + 's';
+        container.appendChild(p);
+        setTimeout(() => p.remove(), 4000);
+    }
+}
 
-        function startGame() {
-            showScreen('screen-hero');
-        }
+// ==================== FASE 1: ANIMAIS ====================
+const ANIMALS = [
+    { emoji:'🐶', sound:'Au au!', hint:'Faz au au!' },
+    { emoji:'🐱', sound:'Miau!', hint:'Faz miau!' },
+    { emoji:'🐸', sound:'Coaxo!', hint:'Croooac!' },
+    { emoji:'🐄', sound:'Muuu!', hint:'Faz muuu!' },
+    { emoji:'🐔', sound:'Cocoricó!', hint:'Acorda todo mundo!' },
+    { emoji:'🦆', sound:'Quá quá!', hint:'Faz quá quá!' },
+    { emoji:'🐑', sound:'Beeee!', hint:'Faz beeee!' },
+    { emoji:'🐷', sound:'Oink!', hint:'Faz ronc ronc!' },
+];
 
-        function chooseHero(hero) {
-            playerHero = hero;
-            showScreen('screen-place');
-        }
+let p1Questions, p1Current, p1Lives;
 
-        function choosePlace(place) {
-            playerPlace = place;
-            if(place === '🌲') document.body.style.backgroundColor = '#98FB98'; // Verde
-            if(place === '🏖️') document.body.style.backgroundColor = '#FFE4B5'; // Areia
-            
-            setupGame();
-            showScreen('screen-game');
-        }
+function setupPhase1() {
+    p1Lives = 3;
+    makeLives(3, 'p1-lives');
+    p1Questions = shuffle([...ANIMALS]).slice(0,4);
+    p1Current = 0;
+    showScreen('screen-phase1');
+    showP1Question();
+}
 
-        function setupGame() {
-            const container = document.getElementById('chests-container');
-            container.innerHTML = '';
-            
-            // Cria 3 baús. Um deles tem a estrela!
-            let winningBox = Math.floor(Math.random() * 3);
-            
-            for(let i = 0; i < 3; i++) {
-                let box = document.createElement('div');
-                box.className = 'card';
-                box.innerHTML = '<div class="emoji">🎁</div>';
-                box.onclick = () => openBox(i === winningBox, box);
-                container.appendChild(box);
-            }
-        }
+function showP1Question() {
+    const q = p1Questions[p1Current];
+    document.getElementById('p1-sound').textContent = '🔊 ' + q.sound;
+    document.getElementById('p1-hint').textContent = q.hint;
+    document.getElementById('p1-progress').textContent = `Pergunta ${p1Current+1} de ${p1Questions.length}`;
 
-        function openBox(isWinner, boxElement) {
-            if(isWinner) {
-                boxElement.innerHTML = '<div class="emoji">🌟</div>';
-                setTimeout(() => {
-                    document.getElementById('win-hero').innerText = playerHero + ' ❤️ 🌟';
-                    showScreen('screen-win');
-                }, 1000);
+    // 4 opções aleatórias incluindo a correta
+    const opts = [q];
+    const pool = ANIMALS.filter(a => a.emoji !== q.emoji);
+    while (opts.length < 4) {
+        const r = pool.splice(rnd(pool.length), 1)[0];
+        opts.push(r);
+    }
+    shuffle(opts);
+
+    const container = document.getElementById('p1-options');
+    container.innerHTML = '';
+    opts.forEach(opt => {
+        const card = document.createElement('div');
+        card.className = 'card sound-card';
+        card.innerHTML = `<span class="card-emoji">${opt.emoji}</span>`;
+        card.onclick = () => answerP1(opt === q, card);
+        container.appendChild(card);
+    });
+}
+
+function answerP1(correct, card) {
+    document.querySelectorAll('#p1-options .card').forEach(c => c.onclick = null);
+    if (correct) {
+        card.style.borderColor = '#4CAF50';
+        card.style.background = '#E8F5E9';
+        playFeedback(document.getElementById('screen-phase1'), '🎉 Isso!');
+        spawnConfetti(15);
+        setTimeout(() => {
+            p1Current++;
+            if (p1Current >= p1Questions.length) {
+                phaseComplete(p1Lives);
             } else {
-                boxElement.innerHTML = '<div class="emoji">💨</div>';
-                boxElement.style.opacity = '0.5';
-                boxElement.onclick = null; // desativa o clique
+                showP1Question();
             }
-        }
-
-        function resetGame() {
-            document.body.style.backgroundColor = '#87CEEB';
-            showScreen('screen-start');
-        }
-
-        // --- Lógica PWA (Progressive Web App) em Arquivo Único ---
-        
-        // 1. Criar e injetar o Manifest.json
-        const manifest = {
-            name: "Aventura Kids",
-            short_name: "Aventura",
-            start_url: ".",
-            display: "standalone",
-            background_color: "#87CEEB",
-            theme_color: "#87CEEB",
-            icons: [{
-                src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌟</text></svg>",
-                sizes: "192x192",
-                type: "image/svg+xml"
-            }]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-        const manifestUrl = URL.createObjectURL(manifestBlob);
-        document.getElementById('manifest-link').href = manifestUrl;
-
-        // 2. Criar e registrar o Service Worker
-        const swCode = `
-            self.addEventListener('install', (e) => e.waitUntil(self.skipWaiting()));
-            self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-            self.addEventListener('fetch', (e) => {
-                e.respondWith(fetch(e.request).catch(() => new Response('Você está offline, mas pode jogar!')));
+        }, 900);
+    } else {
+        card.style.borderColor = '#EF5350';
+        card.style.background = '#FFEBEE';
+        playFeedback(document.getElementById('screen-phase1'), '❌ Ops!');
+        p1Lives--;
+        loseLife('p1-lives');
+        if (p1Lives <= 0) { setTimeout(() => phaseComplete(0), 900); return; }
+        setTimeout(() => {
+            card.style.borderColor = '#f0f0f0';
+            card.style.background = 'white';
+            document.querySelectorAll('#p1-options .card').forEach(c => {
+                c.onclick = (ev) => answerP1(ANIMALS.find(a => a.emoji === c.querySelector('.card-emoji').textContent) === p1Questions[p1Current], c);
             });
-        `;
-        const swBlob = new Blob([swCode], { type: 'text/javascript' });
-        const swUrl = URL.createObjectURL(swBlob);
-        
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl).then(() => console.log('PWA Pronto!')).catch(console.error);
+        }, 700);
+    }
+}
+
+// ==================== FASE 2: SEQUÊNCIA DE CORES ====================
+const COLORS = [
+    { emoji:'🔴', bg:'#EF5350', label:'Vermelho' },
+    { emoji:'🔵', bg:'#42A5F5', label:'Azul' },
+    { emoji:'🟡', bg:'#FFD740', label:'Amarelo' },
+    { emoji:'🟢', bg:'#66BB6A', label:'Verde' },
+    { emoji:'🟠', bg:'#FF9800', label:'Laranja' },
+];
+
+let p2Sequence, p2PlayerInput, p2Level, p2Lives2;
+
+function setupPhase2() {
+    p2Lives2 = 3;
+    makeLives(3, 'p2-lives');
+    p2Level = 1;
+    p2Sequence = [];
+    showScreen('screen-phase2');
+
+    // Botões de resposta
+    const btns = document.getElementById('p2-btns');
+    btns.innerHTML = '';
+    COLORS.forEach((c, i) => {
+        const btn = document.createElement('div');
+        btn.className = 'color-btn';
+        btn.style.background = c.bg;
+        btn.textContent = c.emoji;
+        btn.onclick = () => playerPressColor(i, btn);
+        btns.appendChild(btn);
+    });
+
+    nextP2Round();
+}
+
+function nextP2Round() {
+    p2Sequence.push(rnd(COLORS.length));
+    p2PlayerInput = [];
+    document.getElementById('p2-status').textContent = 'Presta atenção... 👀';
+    document.getElementById('p2-progress').textContent = `Nível ${p2Level}`;
+    setP2BtnsEnabled(false);
+    showP2Sequence();
+}
+
+function showP2Sequence() {
+    const display = document.getElementById('p2-display');
+    display.innerHTML = p2Sequence.map((i, idx) => `<div style="font-size:2rem;opacity:0.3;transition:opacity 0.3s;" id="pd${idx}">${COLORS[i].emoji}</div>`).join('');
+
+    let delay = 800;
+    p2Sequence.forEach((ci, idx) => {
+        setTimeout(() => {
+            const el = document.getElementById('pd'+idx);
+            if (el) { el.style.opacity = '1'; el.style.transform = 'scale(1.4)'; }
+            setTimeout(() => { if(el){el.style.opacity='0.3';el.style.transform='scale(1)';} }, 500);
+        }, delay);
+        delay += 700;
+    });
+
+    setTimeout(() => {
+        document.getElementById('p2-status').textContent = 'Agora é a sua vez! 🎯';
+        setP2BtnsEnabled(true);
+    }, delay + 200);
+}
+
+function setP2BtnsEnabled(on) {
+    document.querySelectorAll('#p2-btns .color-btn').forEach(b => { b.style.pointerEvents = on ? 'auto' : 'none'; b.style.opacity = on ? '1' : '0.6'; });
+}
+
+function playerPressColor(idx, btn) {
+    btn.classList.add('lit');
+    setTimeout(() => btn.classList.remove('lit'), 300);
+
+    p2PlayerInput.push(idx);
+    const pos = p2PlayerInput.length - 1;
+
+    if (p2PlayerInput[pos] !== p2Sequence[pos]) {
+        // Errou
+        p2Lives2--;
+        loseLife('p2-lives');
+        document.getElementById('p2-status').textContent = '😬 Ops! Tente de novo!';
+        playFeedback(document.getElementById('screen-phase2'), '❌');
+        if (p2Lives2 <= 0) { setTimeout(() => phaseComplete(0), 800); return; }
+        setTimeout(() => {
+            p2PlayerInput = [];
+            setP2BtnsEnabled(false);
+            showP2Sequence();
+        }, 900);
+        return;
+    }
+
+    if (p2PlayerInput.length === p2Sequence.length) {
+        // Acertou a sequência
+        document.getElementById('p2-status').textContent = '🎉 Incrível!';
+        spawnConfetti(12);
+        p2Level++;
+        if (p2Level > 4) {
+            setTimeout(() => phaseComplete(p2Lives2), 900);
+        } else {
+            setTimeout(nextP2Round, 1000);
         }
+    }
+}
 
-        // 3. Botão de Instalação PWA
-        let deferredPrompt;
-        const installBtn = document.getElementById('install-btn');
+// ==================== FASE 3: BAÚS ====================
+const TREASURES = ['🌟','💎','👑','🍀','🎵','🦄'];
+const TRAPS = ['💨','🕷️','😱','💤'];
 
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installBtn.style.display = 'block'; // Mostra o botão
-        });
+let p3Lives, p3Round, p3MaxRounds, p3CanClick;
 
-        installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') installBtn.style.display = 'none';
-                deferredPrompt = null;
+function setupPhase3() {
+    p3Lives = 3;
+    p3Round = 0;
+    p3MaxRounds = 4;
+    p3CanClick = true;
+    makeLives(3, 'p3-lives');
+    showScreen('screen-phase3');
+    setupP3Round();
+}
+
+function setupP3Round() {
+    p3CanClick = true;
+    const container = document.getElementById('p3-chests');
+    container.innerHTML = '';
+    const nChests = 3 + Math.floor(p3Round / 2);
+    const clampedChests = Math.min(nChests, 6);
+    container.style.gridTemplateColumns = clampedChests > 3 ? 'repeat(3, 1fr)' : 'repeat(3, 1fr)';
+
+    document.getElementById('p3-progress').textContent = `Rodada ${p3Round+1} de ${p3MaxRounds}`;
+    document.getElementById('p3-hint').textContent = 'Onde está o tesouro? ' + TREASURES[p3Round % TREASURES.length];
+
+    const winIdx = rnd(clampedChests);
+    const treasure = TREASURES[p3Round % TREASURES.length];
+
+    for (let i = 0; i < clampedChests; i++) {
+        const c = document.createElement('div');
+        c.className = 'chest-card';
+        c.textContent = '🎁';
+        const isWin = (i === winIdx);
+        c.onclick = () => {
+            if (!p3CanClick) return;
+            p3CanClick = false;
+            c.classList.add('opened');
+            if (isWin) {
+                c.textContent = treasure;
+                spawnConfetti(20);
+                playFeedback(document.getElementById('screen-phase3'), '🌟 Achou!');
+                p3Round++;
+                if (p3Round >= p3MaxRounds) { setTimeout(() => phaseComplete(p3Lives), 1100); }
+                else { setTimeout(setupP3Round, 1200); }
+            } else {
+                c.textContent = TRAPS[rnd(TRAPS.length)];
+                p3Lives--;
+                loseLife('p3-lives');
+                playFeedback(document.getElementById('screen-phase3'), '😬 Ops!');
+                if (p3Lives <= 0) { setTimeout(() => phaseComplete(0), 900); return; }
+                setTimeout(() => { p3CanClick = true; }, 800);
             }
-        });
-    </script>
+        };
+        container.appendChild(c);
+    }
+}
+
+// ==================== FASE 4: MEMÓRIA ====================
+const MEM_EMOJIS = ['🐶','🐱','🐸','🦊','🐰','🦋','🍎','🌈'];
+
+let p4Flipped, p4Matched, p4CanFlip, p4Total;
+
+function setupPhase4() {
+    const pairs = 4;
+    p4Total = pairs;
+    p4Matched = 0;
+    p4CanFlip = true;
+    p4Flipped = [];
+
+    const emojis = shuffle([...MEM_EMOJIS].slice(0, pairs));
+    const cards = shuffle([...emojis, ...emojis]);
+
+    const grid = document.getElementById('p4-grid');
+    grid.innerHTML = '';
+    grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    document.getElementById('p4-pairs').textContent = '0';
+    document.getElementById('p4-status').textContent = 'Encontre os pares iguais!';
+
+    cards.forEach((emoji, idx) => {
+        const card = document.createElement('div');
+        card.className = 'mem-card';
+        card.dataset.emoji = emoji;
+        card.dataset.idx = idx;
+        card.innerHTML = `<div class="front">❓</div><div class="back">${emoji}</div>`;
+        card.onclick = () => flipMemCard(card);
+        grid.appendChild(card);
+    });
+
+    showScreen('screen-phase4');
+}
+
+function flipMemCard(card) {
+    if (!p4CanFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+    card.classList.add('flipped');
+    p4Flipped.push(card);
+
+    if (p4Flipped.length === 2) {
+        p4CanFlip = false;
+        const [a, b] = p4Flipped;
+        if (a.dataset.emoji === b.dataset.emoji) {
+            a.classList.add('matched');
+            b.classList.add('matched');
+            p4Flipped = [];
+            p4CanFlip = true;
+            p4Matched++;
+            document.getElementById('p4-pairs').textContent = p4Matched;
+            spawnConfetti(8);
+            if (p4Matched === p4Total) {
+                document.getElementById('p4-status').textContent = '🎉 Todos os pares!';
+                setTimeout(() => phaseComplete(3), 900);
+            }
+        } else {
+            setTimeout(() => {
+                a.classList.remove('flipped');
+                b.classList.remove('flipped');
+                p4Flipped = [];
+                p4CanFlip = true;
+            }, 900);
+        }
+    }
+}
+
+// ==================== FASE 5: SOMBRAS ====================
+const SHADOW_ANIMALS = [
+    { emoji:'🐘', name:'Elefante' },
+    { emoji:'🦒', name:'Girafa' },
+    { emoji:'🐊', name:'Jacaré' },
+    { emoji:'🦁', name:'Leão' },
+    { emoji:'🦓', name:'Zebra' },
+    { emoji:'🐧', name:'Pinguim' },
+    { emoji:'🦅', name:'Águia' },
+    { emoji:'🐙', name:'Polvo' },
+];
+
+let p5Questions, p5Current, p5Lives;
+
+function setupPhase5() {
+    p5Lives = 3;
+    makeLives(3, 'p5-lives');
+    p5Questions = shuffle([...SHADOW_ANIMALS]).slice(0, 4);
+    p5Current = 0;
+    showScreen('screen-phase5');
+    showP5Question();
+}
+
+function showP5Question() {
+    const q = p5Questions[p5Current];
+    document.getElementById('p5-shadow').textContent = q.emoji;
+    document.getElementById('p5-progress').textContent = `Pergunta ${p5Current+1} de ${p5Questions.length}`;
+
+    const opts = [q];
+    const pool = SHADOW_ANIMALS.filter(a => a.emoji !== q.emoji);
+    while (opts.length < 4) opts.push(pool.splice(rnd(pool.length), 1)[0]);
+    shuffle(opts);
+
+    const container = document.getElementById('p5-options');
+    container.innerHTML = '';
+    opts.forEach(opt => {
+        const el = document.createElement('div');
+        el.className = 'shadow-option';
+        el.textContent = opt.emoji;
+        el.onclick = () => answerP5(opt === q, el);
+        container.appendChild(el);
+    });
+}
+
+function answerP5(correct, el) {
+    document.querySelectorAll('#p5-options .shadow-option').forEach(e => e.onclick = null);
+    if (correct) {
+        el.classList.add('correct-shadow');
+        spawnConfetti(15);
+        playFeedback(document.getElementById('screen-phase5'), '🎉 Isso!');
+        // Reveal shadow
+        document.getElementById('p5-shadow').style.filter = 'none';
+        setTimeout(() => {
+            document.getElementById('p5-shadow').style.filter = 'brightness(0) opacity(0.25)';
+            p5Current++;
+            if (p5Current >= p5Questions.length) { phaseComplete(p5Lives); }
+            else { showP5Question(); }
+        }, 1000);
+    } else {
+        el.classList.add('wrong-shadow');
+        p5Lives--;
+        loseLife('p5-lives');
+        playFeedback(document.getElementById('screen-phase5'), '❌ Ops!');
+        if (p5Lives <= 0) { setTimeout(() => phaseComplete(0), 800); return; }
+        setTimeout(() => {
+            el.classList.remove('wrong-shadow');
+            document.querySelectorAll('#p5-options .shadow-option').forEach(e => {
+                e.onclick = () => answerP5(e.textContent === p5Questions[p5Current].emoji, e);
+            });
+        }, 700);
+    }
+}
+
+// ==================== PWA ====================
+const manifest = { name:"Aventura Kids",short_name:"Aventura",start_url:".",display:"standalone",background_color:"#FF6B9D",theme_color:"#FF6B9D",icons:[{src:"data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌟</text></svg>",sizes:"192x192",type:"image/svg+xml"}] };
+const manifestBlob = new Blob([JSON.stringify(manifest)],{type:'application/json'});
+document.getElementById('manifest-link').href = URL.createObjectURL(manifestBlob);
+
+const swCode = `self.addEventListener('install',e=>e.waitUntil(self.skipWaiting()));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>new Response('Offline!')));});`;
+if('serviceWorker' in navigator) navigator.serviceWorker.register(URL.createObjectURL(new Blob([swCode],{type:'text/javascript'}))).catch(()=>{});
+
+let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;installBtn.style.display='block';});
+installBtn.addEventListener('click',async()=>{if(deferredPrompt){deferredPrompt.prompt();const{outcome}=await deferredPrompt.userChoice;if(outcome==='accepted')installBtn.style.display='none';deferredPrompt=null;}});
+</script>
 </body>
 </html>
