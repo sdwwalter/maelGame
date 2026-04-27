@@ -9,11 +9,10 @@ body {
     align-items: center;
     padding: 10px;
     overflow: hidden;
-    overscroll-behavior-y: contain; 
-    touch-action: none; 
+    overscroll-behavior-y: contain;
+    touch-action: none;
 }
 
-/* Background animado sutil */
 .bg-pattern {
     position: fixed;
     top: -50%; left: -50%; right: -50%; bottom: -50%;
@@ -49,12 +48,12 @@ body {
     z-index: 1;
 }
 
-.screen { 
-    display: none; 
-    flex-direction: column; 
-    flex: 1; 
-    overflow: auto; 
-    padding: 20px; 
+.screen {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
     animation: fadeIn 0.3s ease-in-out;
 }
 .screen.active { display: flex; }
@@ -64,7 +63,12 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Estilos de Botões */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+}
+
+/* ===== BOTÕES ===== */
 .btn {
     padding: 12px 24px;
     border: none;
@@ -75,7 +79,7 @@ body {
     transition: transform 0.1s, box-shadow 0.1s;
     margin: 8px;
     box-shadow: 0 4px 0 rgba(0,0,0,0.2);
-    min-height: 48px; 
+    min-height: 48px;
 }
 .btn:active { transform: translateY(4px); box-shadow: 0 0px 0 rgba(0,0,0,0.2); }
 .btn-primary { background: #FF6B35; color: white; }
@@ -83,7 +87,175 @@ body {
 .btn-danger { background: #f44336; color: white; }
 .btn-small { padding: 8px 16px; font-size: 0.9rem; }
 
-/* ===== CORRIDA ESTILO SUBWAY SURFERS ===== */
+/* ===== MENU PRINCIPAL ===== */
+.player-stats-bar {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.stat-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 1rem;
+    font-weight: bold;
+}
+.streak-chip { background: #fff3e0; color: #E65100; border: 2px solid #FFB74D; }
+.level-chip  { background: #e8f5e9; color: #2E7D32; border: 2px solid #81C784; }
+.coins-chip  { background: #fffde7; color: #F57F17; border: 2px solid #FFD54F; }
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 4px;
+}
+.menu-card {
+    background: white;
+    border: 3px solid #f0f0f0;
+    border-radius: 18px;
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.menu-card:active { transform: scale(0.95); }
+.menu-card:hover { border-color: #FF6B35; transform: translateY(-4px); box-shadow: 0 8px 20px rgba(255,107,53,0.2); }
+.menu-card h3 { margin-top: 6px; color: #333; font-size: 1rem; }
+.icon-lg { font-size: 2.5rem; }
+.game-best { font-size: 0.75rem; color: #FF6B35; margin-top: 4px; }
+
+/* ===== MISSÕES ===== */
+.missions-section {
+    margin-top: 10px;
+    padding: 8px 4px;
+}
+.mission-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f9f9f9;
+    border: 2px solid #efefef;
+    border-radius: 14px;
+    padding: 10px 12px;
+    margin-bottom: 7px;
+    transition: border-color 0.3s;
+}
+.mission-card.done {
+    background: #f0fff4;
+    border-color: #b2dfdb;
+    opacity: 0.8;
+}
+.mission-icon { font-size: 1.6rem; flex-shrink: 0; }
+.mission-info { flex: 1; min-width: 0; }
+.mission-text { font-size: 0.85rem; color: #333; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mission-bar-wrap { background: #e0e0e0; border-radius: 10px; height: 8px; overflow: hidden; }
+.mission-bar { background: linear-gradient(90deg, #FF6B35, #FF8E0D); height: 100%; border-radius: 10px; transition: width 0.4s ease; min-width: 4px; }
+.mission-reward { font-size: 0.8rem; color: #F57F17; font-weight: bold; flex-shrink: 0; white-space: nowrap; }
+
+/* ===== DAILY REWARD ===== */
+.streak-days-bar {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin: 15px 0;
+}
+.streak-day {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    border: 3px solid #eee;
+    background: #f5f5f5;
+    color: #999;
+    flex-direction: column;
+    font-size: 0.7rem;
+    gap: 0;
+}
+.streak-day.completed { background: #FF6B35; border-color: #FF6B35; color: white; }
+.streak-day.today { background: #FFD54F; border-color: #F9A825; color: #333; transform: scale(1.2); box-shadow: 0 3px 10px rgba(249,168,37,0.5); }
+
+.reward-box {
+    background: linear-gradient(135deg, #fff8e1, #fff3cd);
+    border: 3px solid #FFD54F;
+    border-radius: 20px;
+    padding: 20px 40px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    80% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ===== GAME OVER ===== */
+.new-record-badge {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: white;
+    text-align: center;
+    padding: 10px;
+    font-size: 1.1rem;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    animation: recordPulse 0.6s ease-in-out infinite alternate;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+@keyframes recordPulse {
+    from { transform: scale(1); box-shadow: 0 0 10px rgba(255,165,0,0.5); }
+    to   { transform: scale(1.03); box-shadow: 0 0 20px rgba(255,165,0,0.8); }
+}
+
+.result-box {
+    background: #f9f9f9;
+    border-radius: 16px;
+    padding: 15px 20px;
+    margin: 10px 0 15px;
+}
+.result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 1rem;
+    color: #555;
+}
+.result-row:last-child { border-bottom: none; }
+
+/* ===== TOAST ===== */
+#toast {
+    position: fixed;
+    bottom: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    z-index: 9999;
+    transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    white-space: nowrap;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+#toast.show { bottom: 30px; }
+
+/* ===== CORRIDA ===== */
 #race-container {
     position: relative;
     width: 100%;
@@ -91,11 +263,10 @@ body {
     overflow: hidden;
     border-radius: 0 0 15px 15px;
     perspective: 600px;
-    touch-action: none; /* Block default scroll */
+    touch-action: none;
     user-select: none;
 }
 
-/* Nuvens Animadas */
 .clouds {
     position: absolute;
     top: 10%; left: 0; right: 0; height: 50px;
@@ -124,8 +295,7 @@ body {
 }
 .lane-line {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 0; bottom: 0;
     width: 4px;
     background: rgba(255,255,255,0.3);
     left: 33.33%;
@@ -146,21 +316,11 @@ body {
 .race-hero.jumping {
     animation: jumpAnim 0.5s cubic-bezier(0.25, 1, 0.5, 1);
 }
-.race-hero.jumping::after {
-    content: '💨';
-    position: absolute; bottom: -20px; left: 10px;
-    font-size: 1.5rem; opacity: 0;
-    animation: dust 0.5s ease-out;
-}
 
 @keyframes jumpAnim {
-    0% { bottom: 40px; transform: translateX(-50%) scale(1); }
-    50% { bottom: 180px; transform: translateX(-50%) scale(1.2); }
+    0%   { bottom: 40px; transform: translateX(-50%) scale(1); }
+    50%  { bottom: 180px; transform: translateX(-50%) scale(1.2); }
     100% { bottom: 40px; transform: translateX(-50%) scale(1); }
-}
-@keyframes dust {
-    0% { opacity: 1; transform: scale(1) translateY(0); }
-    100% { opacity: 0; transform: scale(2) translateY(20px); }
 }
 
 .game-obj {
@@ -173,7 +333,22 @@ body {
     display: none;
 }
 
-/* FLAPPY PET */
+/* Combo display overlay */
+.combo-display {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 1.5rem;
+    color: #FFD700;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    z-index: 200;
+    transition: transform 0.15s ease;
+    pointer-events: none;
+    min-width: 60px;
+    text-align: right;
+}
+
+/* ===== FLAPPY PET ===== */
 .flappy-pipe {
     position: absolute;
     width: 60px;
@@ -185,7 +360,7 @@ body {
 .flappy-pipe.top { top: 0; border-bottom: 6px solid #543847; }
 .flappy-pipe.bottom { bottom: 0; border-top: 6px solid #543847; }
 
-/* PIANO KIDS */
+/* ===== PIANO ===== */
 .piano-container {
     display: flex;
     flex: 1;
@@ -200,7 +375,7 @@ body {
     justify-content: center;
     padding-bottom: 20px;
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     cursor: pointer;
     box-shadow: inset 0 -10px rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.3);
     transition: transform 0.1s, box-shadow 0.1s;
@@ -213,29 +388,7 @@ body {
     filter: brightness(1.2);
 }
 
-/* ===== OUTRAS TELAS E ESTILOS ===== */
-.menu-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-    padding: 10px;
-}
-.menu-card {
-    background: white;
-    border: 4px solid #f0f0f0;
-    border-radius: 20px;
-    padding: 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-}
-.menu-card:active { transform: scale(0.95); }
-.menu-card:hover { border-color: #FF6B35; transform: translateY(-5px); box-shadow: 0 10px 20px rgba(255,107,53,0.2); }
-.menu-card h3 { margin-top: 10px; color: #333; }
-.icon-lg { font-size: 3rem; }
-
+/* ===== BARRA DE SCORE ===== */
 .score-bar {
     background: #f0f0f0;
     padding: 10px 20px;
@@ -248,7 +401,7 @@ body {
     z-index: 200;
 }
 
-/* Modal */
+/* ===== MODAL ===== */
 #modal-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -269,7 +422,7 @@ body {
     animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Jogo da Memória */
+/* ===== MEMÓRIA ===== */
 .memory-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -290,15 +443,12 @@ body {
     transform-style: preserve-3d;
     box-shadow: 0 4px 0 #d9531e;
 }
-.memory-card:active {
-    box-shadow: 0 0px 0 #d9531e;
-    transform: translateY(4px);
-}
-.memory-card.flipped { 
-    background: white; 
-    border: 2px solid #FF6B35; 
-    color: initial; 
-    transform: rotateY(180deg); 
+.memory-card:active { box-shadow: 0 0 0 #d9531e; transform: translateY(4px); }
+.memory-card.flipped {
+    background: white;
+    border: 2px solid #FF6B35;
+    color: initial;
+    transform: rotateY(180deg);
     box-shadow: inset 0 0 10px rgba(255,107,53,0.2);
 }
 .memory-card.matched {
@@ -307,10 +457,10 @@ body {
     transition: opacity 0.5s;
 }
 
-/* Jogo de Blocos */
+/* ===== BLOCOS ===== */
 #blocks-canvas {
     display: block;
     max-width: 100%;
-    touch-action: none; /* Ensure no scrolling */
+    touch-action: none;
     image-rendering: pixelated;
 }
