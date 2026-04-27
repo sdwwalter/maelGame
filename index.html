@@ -4,30 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Aventura Kids</title>
-    
-    <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FF6B35">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌈</text></svg>">
-    
-    <!-- Fonte -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
-    
-    <!-- Estilos -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Background Animado -->
 <div class="bg-pattern"></div>
 
+<!-- Toast de missão completa -->
+<div id="toast"></div>
+
 <div class="game-container">
+
     <!-- Tela Inicial -->
     <div id="screen-start" class="screen active">
         <h1 style="font-size: 2.5rem; color: #FF6B35; margin-top: 40px; text-align: center; text-shadow: 2px 2px 0px #fff;">AVENTURA KIDS</h1>
-        <p style="color: #666; margin-bottom: 30px; text-align: center; font-size: 1.2rem;">O mundo da diversão!</p>
+        <p style="color: #666; margin-bottom: 10px; text-align: center; font-size: 1.2rem;">O mundo da diversão!</p>
         <div style="font-size: 8rem; text-align: center; margin: 20px; animation: float 3s ease-in-out infinite;">🌈</div>
         <button class="btn btn-primary" onclick="showScreen('screen-hero')" style="margin-top: auto; padding: 20px; font-size: 1.5rem;">VAMOS COMEÇAR! 🚀</button>
+    </div>
+
+    <!-- Recompensa Diária (Daily Login) -->
+    <div id="screen-reward" class="screen">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center;">
+            <div style="font-size:5rem; animation: float 2s ease-in-out infinite;">🔥</div>
+            <h2 style="color:#FF6B35; margin:15px 0 5px; font-size:1.8rem;">Login Diário!</h2>
+            <p id="reward-streak-msg" style="color:#666; margin-bottom:20px; font-size:1.1rem;">Sequência: 1 dia!</p>
+
+            <!-- Barra de 7 dias -->
+            <div class="streak-days-bar" id="streak-days-bar"></div>
+
+            <!-- Caixa de recompensa -->
+            <div class="reward-box">
+                <div style="font-size:2.5rem;">🪙</div>
+                <div style="font-size:1.4rem; font-weight:bold; color:#FF6B35;">+<span id="reward-coins-amount">20</span> moedas</div>
+                <div style="font-size:0.85rem; color:#999; margin-top:4px;">Volte amanhã para ganhar mais!</div>
+            </div>
+
+            <button class="btn btn-primary" id="btn-claim" onclick="claimDailyReward()" style="width:90%; font-size:1.3rem; padding:18px; margin-top:20px;">
+                Resgatar! 🎉
+            </button>
+        </div>
     </div>
 
     <!-- Seleção de Herói -->
@@ -42,33 +62,57 @@
     </div>
 
     <!-- Menu Principal -->
-    <div id="screen-menu" class="screen">
-        <h2 style="text-align: center; color: #333; margin-bottom: 10px;">O que vamos jogar?</h2>
-        <div class="menu-grid" style="grid-template-columns: 1fr 1fr; overflow-y: auto;">
+    <div id="screen-menu" class="screen" style="padding: 10px 15px;">
+
+        <!-- Barra de status do jogador -->
+        <div class="player-stats-bar">
+            <div class="stat-chip streak-chip">🔥 <span id="streak-display">0</span>d</div>
+            <div class="stat-chip level-chip">⚡ Nv <span id="level-display">1</span></div>
+            <div class="stat-chip coins-chip">🪙 <span id="coins-display">0</span></div>
+        </div>
+
+        <h2 style="text-align: center; color: #333; margin-bottom: 8px; font-size:1.3rem;">O que vamos jogar?</h2>
+
+        <!-- Grade de Jogos -->
+        <div class="menu-grid" style="grid-template-columns: 1fr 1fr; gap: 10px;">
             <div class="menu-card" onclick="initRace()">
                 <div class="icon-lg">🏃</div>
                 <h3>Corrida</h3>
+                <div class="game-best" id="best-race">🏆 0</div>
             </div>
             <div class="menu-card" onclick="initFlappy()">
                 <div class="icon-lg">✈️</div>
                 <h3>Flappy</h3>
+                <div class="game-best" id="best-flappy">🏆 0</div>
             </div>
             <div class="menu-card" onclick="initBlocks()">
                 <div class="icon-lg">🧱</div>
                 <h3>Blocos</h3>
+                <div class="game-best" id="best-blocks">🏆 0</div>
             </div>
             <div class="menu-card" onclick="initPiano()">
                 <div class="icon-lg">🎹</div>
                 <h3>Piano</h3>
+                <div class="game-best" style="color:transparent;">-</div>
             </div>
             <div class="menu-card" onclick="initMemory()">
                 <div class="icon-lg">🧠</div>
                 <h3>Memória</h3>
+                <div class="game-best" id="best-memory">⏱ --</div>
             </div>
             <div class="menu-card" onclick="showScreen('screen-hero')">
                 <div class="icon-lg">👤</div>
                 <h3>Trocar</h3>
+                <div class="game-best" style="color:transparent;">-</div>
             </div>
+        </div>
+
+        <!-- Missões do Dia -->
+        <div class="missions-section">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding: 0 4px 6px;">
+                <span style="font-size:1rem; color:#555; font-weight:bold;">🎯 Missões do Dia</span>
+            </div>
+            <div id="missions-list"></div>
         </div>
     </div>
 
@@ -79,14 +123,15 @@
             <span>⭐ <span id="race-score">0</span></span>
             <button class="btn btn-danger btn-small" onclick="quitGame()" style="margin:0;">🚩 Sair</button>
         </div>
-        <!-- Expandido para ocupar tudo (sem controles) -->
-        <div id="race-container" style="flex: 1; height: auto;">
+        <div id="race-container" style="flex: 1; height: auto; position:relative;">
             <div class="clouds"></div>
             <div class="road">
                 <div class="lane-line"></div>
                 <div class="lane-line right"></div>
             </div>
             <div id="race-hero" class="race-hero">🐶</div>
+            <!-- Combo display overlay -->
+            <div id="combo-display" class="combo-display"></div>
         </div>
     </div>
 
@@ -118,14 +163,37 @@
         </div>
     </div>
 
-    <!-- Tela de Resultado Corrida / Flappy -->
+    <!-- Tela de Resultado (Game Over) -->
     <div id="screen-race-over" class="screen">
-        <h2 style="text-align: center; color: #333;">Fim de Jogo!</h2>
-        <div style="font-size: 5rem; text-align: center; margin: 20px;">🏁</div>
-        <div class="score-bar" style="flex-direction: column; gap: 10px; border-radius: 15px; margin-bottom: 20px;">
-            <p>Pontuação: <strong id="final-score" style="color: #FF6B35;">0</strong></p>
+        <!-- Badge de Novo Recorde -->
+        <div id="new-record-badge" class="new-record-badge" style="display:none;">
+            ⭐ NOVO RECORDE! ⭐
         </div>
-        <button class="btn btn-primary" onclick="showScreen('screen-menu')">Menu Principal 🏠</button>
+
+        <h2 style="text-align: center; color: #333; margin-top:10px;">Fim de Jogo!</h2>
+        <div style="font-size: 4rem; text-align: center; margin: 10px; animation: float 2s ease-in-out infinite;" id="gameover-emoji">🏁</div>
+
+        <div class="result-box">
+            <div class="result-row">
+                <span>Pontuação</span>
+                <strong id="final-score" style="color: #FF6B35;">0</strong>
+            </div>
+            <div class="result-row">
+                <span>Moedas ganhas</span>
+                <strong id="final-coins-earned" style="color: #F4A700;">+0 🪙</strong>
+            </div>
+            <div class="result-row">
+                <span id="highscore-label">🏆 Recorde</span>
+                <strong id="highscore-display" style="color:#555;">0</strong>
+            </div>
+        </div>
+
+        <button class="btn btn-success" id="btn-play-again" onclick="playAgain()" style="width:90%; font-size:1.2rem; padding:15px; margin:8px auto; display:block;">
+            Jogar de Novo! 🔄
+        </button>
+        <button class="btn btn-primary" onclick="showScreen('screen-menu')" style="width:90%; font-size:1.1rem; padding:12px; margin:4px auto; display:block;">
+            Menu Principal 🏠
+        </button>
     </div>
 
     <!-- Tela Memória -->
@@ -141,9 +209,9 @@
     <div id="screen-blocks" class="screen" style="padding-bottom: 0;">
         <div class="score-bar" style="border-radius: 15px 15px 0 0; margin-bottom: 0;">
             <span style="font-weight: bold; color: #FF6B35;">BLOCOS</span>
+            <span>Linhas: <strong id="blocks-lines">0</strong></span>
             <button class="btn btn-danger btn-small" onclick="quitBlocks()" style="margin:0;">Sair</button>
         </div>
-        <!-- Canvas ocupará o resto da tela, sem botões de controle -->
         <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #222; border-radius: 0 0 15px 15px; overflow: hidden; position: relative;">
             <canvas id="blocks-canvas" style="max-height: 100%;"></canvas>
             <div id="blocks-swipe-hint" style="position: absolute; bottom: 20px; color: rgba(255,255,255,0.5); font-size: 0.8rem; pointer-events: none; text-align: center;">
@@ -163,17 +231,16 @@
             </div>
         </div>
     </div>
-</div>
 
-<!-- Scripts -->
+</div><!-- /game-container -->
+
 <script src="game.js"></script>
 <script>
-    // Registro do Service Worker para PWA
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('Service Worker Registrado!', reg))
-                .catch(err => console.error('Erro no Service Worker', err));
+                .then(reg => console.log('SW OK', reg))
+                .catch(err => console.error('SW Erro', err));
         });
     }
 </script>
