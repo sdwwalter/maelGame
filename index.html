@@ -19,6 +19,32 @@
 
 <div class="game-container">
 
+    <!-- HUD fixa no topo -->
+<div id="hud" style="display: flex; justify-content: space-between; padding: 8px 12px; background: #fff7e6; font-weight: bold; z-index: 300;">
+  <span id="hud-level">Nv.1</span>
+  <div style="flex:1; margin:0 10px; background:#eee; border-radius:10px; overflow:hidden; height:12px;">
+    <div id="hud-xp-bar" style="width:0%; height:100%; background: linear-gradient(90deg, #FF6B35, #FFCA3A);"></div>
+  </div>
+  <span>🪙 <span id="hud-coins">0</span></span>
+  <span style="margin-left:8px;">💎 <span id="hud-gems">0</span></span>
+  <button onclick="openShop()" style="margin-left:8px; background:none; border:none; font-size:1.2rem;">🛒</button>
+</div>
+
+<!-- Tela de Diária -->
+<div id="screen-daily" class="screen">
+  <h2>Recompensa Diária!</h2>
+  <p>Dia <span id="daily-streak">1</span> seguido!</p>
+  <div style="font-size:2rem;">🪙<span id="daily-coins">0</span>  💎<span id="daily-gems">0</span></div>
+  <button class="btn btn-primary" onclick="showScreen('screen-menu')">Coletar!</button>
+</div>
+
+<!-- Tela da Loja -->
+<div id="screen-shop" class="screen">
+  <h2>Loja de Skins</h2>
+  <div id="shop-items" style="display:flex; flex-wrap:wrap; gap:15px; justify-content:center;"></div>
+  <button class="btn btn-primary" onclick="showScreen('screen-menu')">Voltar</button>
+</div>
+
     <!-- Tela Inicial -->
     <div id="screen-start" class="screen active">
         <h1 style="font-size: 2.5rem; color: #FF6B35; margin-top: 40px; text-align: center; text-shadow: 2px 2px 0px #fff;">AVENTURA KIDS</h1>
