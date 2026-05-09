@@ -1,5 +1,4 @@
-// ========== AVENTURA KIDS – game.js COMPLETO ==========
-// Com Corrida, Flappy, Blocos, Piano, Memória, Balões, Velha e Sequência
+// ========== AVENTURA KIDS – game.js COMPLETO V3 ==========
 
 // ---------- DADOS PERSISTENTES ----------
 const GameData = {
@@ -57,8 +56,10 @@ const AudioSys = {
     pop() { this.playTone(600,'sine',0.1); this.playTone(400,'sine',0.15); },
     tttPlace() { this.playTone(500,'sine',0.1); },
     tttWin() { this.playTone(700,'sine',0.15); setTimeout(()=>this.playTone(900,'sine',0.2),150); },
-    sequenceNote(freq) { this.playTone(freq,'sine',0.2,0.15); },
-    sequenceError() { this.playTone(150,'sawtooth',0.4); }
+    sequenceNote(freq) { this.playTone(freq,'sine',0.25,0.2); },
+    sequenceError() { this.playTone(150,'sawtooth',0.4); },
+    blockPlace() { this.playTone(200,'square',0.1); },
+    blockClear() { [300,500,700].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.15),i*100)); }
 };
 
 // ---------- EFEITOS VISUAIS ----------
@@ -102,18 +103,22 @@ function showToast(msg) {
 // ---------- ATUALIZAÇÕES DE INTERFACE ----------
 function updatePlayerStats() {
     const data = GameData.get();
-    document.getElementById('level-display').textContent = data.level;
-    document.getElementById('coins-display').textContent = data.coins;
-    document.getElementById('streak-display').textContent = data.streak;
+    const lvEl = document.getElementById('level-display');
+    const coinEl = document.getElementById('coins-display');
+    const strEl = document.getElementById('streak-display');
+    if(lvEl) lvEl.textContent = data.level;
+    if(coinEl) coinEl.textContent = data.coins;
+    if(strEl) strEl.textContent = data.streak;
 }
 function updateBestScores() {
     const r = GameData.get().records;
-    document.getElementById('best-race').textContent = '🏆'+r.race;
-    document.getElementById('best-flappy').textContent = '🏆'+r.flappy;
-    document.getElementById('best-blocks').textContent = '🏆'+r.blocks;
-    document.getElementById('best-memory').textContent = '⏱'+(r.memory===999?'--':r.memory+'s');
-    document.getElementById('best-balloons').textContent = '🏆'+r.balloons;
-    document.getElementById('best-sequence').textContent = '🏆'+r.sequence;
+    const be = (id,val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    be('best-race', '🏆'+r.race);
+    be('best-flappy', '🏆'+r.flappy);
+    be('best-blocks', '🏆'+r.blocks);
+    be('best-memory', '⏱'+(r.memory===999?'--':r.memory+'s'));
+    be('best-balloons', '🏆'+r.balloons);
+    be('best-sequence', '🏆'+r.sequence);
 }
 
 // ---------- SISTEMA DIÁRIO ----------
@@ -200,20 +205,18 @@ function renderMissions() {
 // ---------- NAVEGAÇÃO DE TELAS ----------
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+    const target = document.getElementById(id);
+    if(target) target.classList.add('active');
     // pausar loops
-    if(id!=='screen-race') raceState.active=false;
-    if(id!=='screen-flappy') flappyState.active=false;
-    clearInterval(blocksInterval);
-    clearInterval(memoryTimer);
-    clearInterval(balloonsInterval);
-    clearTimeout(seqTimeout);
-    if(reqAnimFrame) cancelAnimationFrame(reqAnimFrame);
-    if(flappyAnimFrame) cancelAnimationFrame(flappyAnimFrame);
+    if(id!=='screen-race') { if(raceState) raceState.active=false; clearTimeout(raceTimeout); }
+    if(id!=='screen-flappy') { if(flappyState) flappyState.active=false; cancelAnimationFrame(flappyAnimFrame); }
+    clearInterval(blocksInterval); clearInterval(balloonsInterval);
+    clearInterval(memoryTimer); clearTimeout(seqTimeout);
     if(id==='screen-menu'){updatePlayerStats();updateBestScores();renderMissions();}
     if(id==='screen-reward') renderStreakBar();
     if(id==='screen-tictactoe') resetTicTacToe();
     if(id==='screen-sequence') resetSequence();
+    if(id==='screen-blocks') initBlocksPuzzle();
 }
 
 // ---------- HERÓI ----------
@@ -224,150 +227,147 @@ function setHero(emoji) {
     showScreen('screen-menu');
 }
 
-// ========== CORRIDA ==========
-let reqAnimFrame;
-let raceState = { active:false, lane:1, jumping:false, lives:3, score:0, distance:0, speed:1.2, lastTime:0, nextObjDist:6, coinsCollected:0, combo:0, lastPickupTime:0 };
-const objPool = []; const MAX_POOL = 20;
-function initPool() {
-    const container = document.getElementById('race-container');
-    for(let i=0;i<MAX_POOL;i++) {
-        const el = document.createElement('div'); el.className='game-obj';
-        container.appendChild(el);
-        objPool.push({el,active:false,type:'',lane:0,progress:0,emoji:''});
-    }
-}
-window.addEventListener('load', initPool);
-function getFreeObj(){return objPool.find(o=>!o.active);}
+// ========== CORRIDA 2D LATERAL ==========
+let raceState = null; let raceTimeout = null;
 function initRace() {
-    raceState = { active:true, lane:1, jumping:false, lives:3, score:0, distance:0, speed:1.2, lastTime:performance.now(), nextObjDist:6, coinsCollected:0, combo:0, lastPickupTime:0 };
-    document.getElementById('race-lives').textContent='3';
-    document.getElementById('race-score').textContent='0';
-    document.getElementById('combo-display').textContent='';
-    document.getElementById('race-hero').style.left='50%';
-    document.getElementById('race-hero').classList.remove('jumping');
-    objPool.forEach(o=>{o.active=false;o.el.style.display='none';});
-    showScreen('screen-race');
-    reqAnimFrame = requestAnimationFrame(runRace);
-}
-function moveLane(dir) {
-    if(!raceState.active) return;
-    raceState.lane = Math.max(0,Math.min(2,raceState.lane+dir));
-    document.getElementById('race-hero').style.left=['20%','50%','80%'][raceState.lane];
-}
-function jump() {
-    if(!raceState.active||raceState.jumping) return;
-    raceState.jumping=true; AudioSys.jump();
-    document.getElementById('race-hero').classList.add('jumping');
-    setTimeout(()=>{raceState.jumping=false;document.getElementById('race-hero').classList.remove('jumping');},450);
-}
-function runRace(ts) {
-    if(!raceState.active) return;
-    const dt = Math.min((ts-raceState.lastTime)/1000,0.1);
-    raceState.lastTime=ts;
-    raceState.distance += raceState.speed*dt*12;
-    raceState.speed += 0.01*dt;
-    if(raceState.distance>raceState.nextObjDist){spawnRaceObject();raceState.nextObjDist=raceState.distance+(Math.random()*12+6)/raceState.speed;}
-    if(raceState.combo>0 && ts-raceState.lastPickupTime>1500){raceState.combo=0;document.getElementById('combo-display').textContent='';}
-    objPool.forEach(obj=>{
-        if(!obj.active) return;
-        obj.progress += raceState.speed*dt*0.7;
-        const y=35+obj.progress*430;
-        const laneX=[20,50,80][obj.lane];
-        obj.el.style.top=y+'px'; obj.el.style.left=laneX+'%';
-        obj.el.style.transform=`translate(-50%,-50%) scale(${0.1+obj.progress*1.5})`;
-        if(obj.progress>0.8&&obj.progress<0.95&&obj.lane===raceState.lane) {
-            if(obj.type==='coin') collectCoin(obj,ts);
-            else if(obj.type==='gem') collectGem(obj);
-            else if(obj.type==='obs') { if((obj.emoji==='🪨'||obj.emoji==='📦')&&raceState.jumping) return; hitObstacle(obj); }
+    const heroEmoji = GameData.get().currentHero;
+    // Monta a tela dinamicamente
+    const screen = document.getElementById('screen-race');
+    screen.innerHTML = `
+        <div id="runner-container">
+            <div id="runner-ground"></div>
+            <div id="runner-hero">${heroEmoji}</div>
+            <div id="runner-score-display">⭐ 0</div>
+        </div>
+    `;
+    raceState = {
+        active: true, score: 0, jumping: false, sliding: false,
+        obstacleActive: false, speed: 2.5, frameId: null
+    };
+    document.getElementById('runner-score-display').textContent = '⭐ 0';
+    screen.onclick = (e) => {
+        if(!raceState.active) return;
+        if(raceState.jumping) return;
+        raceState.jumping = true;
+        const hero = document.getElementById('runner-hero');
+        hero.classList.add('jumping');
+        AudioSys.jump();
+        setTimeout(() => {
+            hero.classList.remove('jumping');
+            raceState.jumping = false;
+        }, 500);
+    };
+    // Deslizar: touch de arrastar para baixo
+    let touchY = 0;
+    screen.addEventListener('touchstart', e => { touchY = e.touches[0].clientY; });
+    screen.addEventListener('touchmove', e => {
+        if(!raceState.active) return;
+        const dy = e.touches[0].clientY - touchY;
+        if(dy > 30 && !raceState.sliding && !raceState.jumping) {
+            raceState.sliding = true;
+            document.getElementById('runner-hero').classList.add('sliding');
+            setTimeout(() => {
+                raceState.sliding = false;
+                document.getElementById('runner-hero').classList.remove('sliding');
+            }, 400);
         }
-        if(obj.progress>1.15){obj.active=false;obj.el.style.display='none';}
     });
-    reqAnimFrame=requestAnimationFrame(runRace);
+    showScreen('screen-race');
+    raceState.frameId = requestAnimationFrame(runnerLoop);
 }
-function collectCoin(obj,ts) {
-    raceState.coinsCollected++; raceState.combo++; raceState.lastPickupTime=ts;
-    raceState.score+=5+Math.floor(raceState.combo/5)*2;
-    GameData.addCoins(1); AudioSys.coin();
-    document.getElementById('race-score').textContent=raceState.score;
-    if(raceState.combo>5) document.getElementById('combo-display').textContent=raceState.combo+'x COMBO!';
-    obj.active=false; obj.el.style.display='none';
+function runnerLoop(ts) {
+    if(!raceState || !raceState.active) return;
+    if(!raceState.obstacleActive || !document.querySelector('.runner-obstacle')) {
+        spawnRunnerObstacle();
+    }
+    const obs = document.querySelector('.runner-obstacle');
+    if(obs) {
+        const heroRect = document.getElementById('runner-hero').getBoundingClientRect();
+        const obsRect = obs.getBoundingClientRect();
+        const containerRect = document.getElementById('runner-container').getBoundingClientRect();
+        // Colisão simples
+        const heroBottom = heroRect.bottom - containerRect.top;
+        const heroTop = heroRect.top - containerRect.top;
+        const obsLeft = obsRect.left - containerRect.left;
+        const obsRight = obsRect.right - containerRect.left;
+        if(obsLeft < heroRect.right - containerRect.left && obsRight > heroRect.left - containerRect.left) {
+            if(!raceState.jumping && !raceState.sliding) {
+                // Colidiu
+                raceState.active = false;
+                document.querySelector('.runner-obstacle')?.remove();
+                AudioSys.crash(); screenShake();
+                endRunner();
+                return;
+            } else if(raceState.sliding && obs.textContent === '🪨') {
+                // Desviou de pedra
+            } else if(raceState.jumping && obs.textContent === '📦') {
+                // Passou por cima de caixa
+            } else {
+                // Colidiu mesmo pulando/agachando
+                raceState.active = false;
+                document.querySelector('.runner-obstacle')?.remove();
+                AudioSys.crash(); screenShake();
+                endRunner();
+                return;
+            }
+        }
+        if(obsRect.right < containerRect.left + 50 && !obs.dataset.scored) {
+            raceState.score += 10;
+            document.getElementById('runner-score-display').textContent = '⭐ ' + raceState.score;
+            obs.dataset.scored = '1';
+            AudioSys.coin();
+        }
+        if(obsRect.right < containerRect.left - 50) obs.remove();
+    }
+    raceState.frameId = requestAnimationFrame(runnerLoop);
 }
-function collectGem(obj) {
-    raceState.coinsCollected+=5; raceState.score+=25;
-    GameData.addCoins(5); AudioSys.coin();
-    document.getElementById('race-score').textContent=raceState.score;
-    spawnParticles('💎',6);
-    obj.active=false; obj.el.style.display='none';
+function spawnRunnerObstacle() {
+    const container = document.getElementById('runner-container');
+    if(!container) return;
+    const obs = document.createElement('div');
+    obs.className = 'runner-obstacle';
+    obs.textContent = Math.random()>0.5 ? '🪨' : '📦';
+    container.appendChild(obs);
+    raceState.obstacleActive = true;
 }
-function spawnRaceObject() {
-    const obj=getFreeObj(); if(!obj) return;
-    const rand=Math.random();
-    let type, emoji;
-    if(rand<0.05){type='gem';emoji='💎';}
-    else if(rand<0.5){type='coin';emoji='🪙';}
-    else {type='obs';emoji=['🪨','📦','🚧','🌵'][Math.floor(Math.random()*4)];}
-    obj.active=true; obj.type=type; obj.emoji=emoji; obj.lane=Math.floor(Math.random()*3); obj.progress=0;
-    obj.el.innerHTML=`<span style="font-size:3rem;">${emoji}</span>`;
-    obj.el.style.display='block';
-}
-function hitObstacle(obj) {
-    raceState.lives--; raceState.combo=0; AudioSys.crash(); screenShake();
-    document.getElementById('race-lives').textContent=raceState.lives;
-    obj.active=false; obj.el.style.display='none';
-    if(raceState.lives<=0) endRace();
-}
-function endRace() {
-    raceState.active=false; cancelAnimationFrame(reqAnimFrame);
-    const coinsEarned=Math.floor(raceState.coinsCollected*0.6);
-    GameData.addCoins(coinsEarned);
-    GameData.addXP(Math.floor(raceState.distance/5));
-    GameData.setRecord('race',raceState.score);
-    updateMissionProgress('race1',1); updateMissionProgress('race3',1); updateMissionProgress('coins30',coinsEarned);
-    document.getElementById('final-score').textContent='⭐ '+raceState.score;
-    document.getElementById('final-coins-earned').textContent='+'+coinsEarned+' 🪙';
-    document.getElementById('highscore-display').textContent=GameData.get().records.race;
-    document.getElementById('gameover-emoji').textContent='🏁';
-    document.getElementById('new-record-badge').style.display = (raceState.score>GameData.get().records.race)?'block':'none';
-    document.getElementById('btn-play-again').onclick=initRace;
+function endRunner() {
+    cancelAnimationFrame(raceState.frameId);
+    const coins = Math.floor(raceState.score/2);
+    GameData.addCoins(coins);
+    GameData.addXP(Math.floor(raceState.score/3));
+    GameData.setRecord('race', raceState.score);
+    updateMissionProgress('race1',1); updateMissionProgress('coins30',coins);
+    document.getElementById('final-score').textContent = '⭐ '+raceState.score;
+    document.getElementById('final-coins-earned').textContent = '+'+coins+' 🪙';
+    document.getElementById('highscore-display').textContent = GameData.get().records.race;
+    document.getElementById('gameover-emoji').textContent = '🏃';
+    document.getElementById('btn-play-again').onclick = initRace;
     showScreen('screen-race-over');
 }
 
-// Swipe corrida
-const raceContainer = document.getElementById('race-container');
-let touchStartX=0, touchStartY=0;
-raceContainer.addEventListener('touchstart',e=>{touchStartX=e.changedTouches[0].screenX;touchStartY=e.changedTouches[0].screenY;},{passive:true});
-raceContainer.addEventListener('touchend',e=>{
-    if(!raceState.active) return;
-    let dx=e.changedTouches[0].screenX-touchStartX, dy=e.changedTouches[0].screenY-touchStartY;
-    if(Math.abs(dx)>Math.abs(dy)){if(Math.abs(dx)>30) moveLane(dx>0?1:-1);}
-    else {if(dy<-30) jump();}
-},{passive:true});
-
-// ========== FLAPPY ==========
-let flappyState = { active:false, y:50, vel:0, gravity:180, jump:-55, score:0, pipes:[], lastTime:0 };
+// ========== FLAPPY (AJUSTADO) ==========
+let flappyState = { active:false, y:50, vel:0, gravity:0.4, jump:-6, score:0, pipes:[], lastTime:0 };
 let flappyAnimFrame;
 function initFlappy() {
-    flappyState = { active:true, y:50, vel:0, gravity:180, jump:-55, score:0, pipes:[], lastTime:performance.now() };
+    flappyState = { active:true, y:50, vel:0, gravity:0.4, jump:-6, score:0, pipes:[], lastTime:performance.now() };
     document.getElementById('flappy-score').textContent='0';
     document.getElementById('flappy-hero').style.top='50%';
     document.querySelectorAll('.flappy-pipe').forEach(p=>p.remove());
     showScreen('screen-flappy');
     flappyAnimFrame=requestAnimationFrame(runFlappy);
 }
-function flap() {
-    if(!flappyState.active) return;
-    flappyState.vel=flappyState.jump; AudioSys.flap();
-}
+function flap() { if(!flappyState.active) return; flappyState.vel=flappyState.jump; AudioSys.flap(); }
 function runFlappy(ts) {
     if(!flappyState.active) return;
     const dt=Math.min((ts-flappyState.lastTime)/1000,0.1); flappyState.lastTime=ts;
-    flappyState.vel+=flappyState.gravity*dt; flappyState.y+=flappyState.vel*dt;
+    flappyState.vel+=flappyState.gravity*dt*60; // ajuste
+    flappyState.y+=flappyState.vel*dt*60;
     const heroEl=document.getElementById('flappy-hero');
     heroEl.style.top=flappyState.y+'%';
-    heroEl.style.transform=`translateY(-50%) rotate(${Math.min(Math.max(flappyState.vel*0.4,-30),90)}deg)`;
+    heroEl.style.transform=`translateY(-50%) rotate(${Math.min(Math.max(flappyState.vel*3,-30),90)}deg)`;
     if(flappyState.y<0||flappyState.y>100) return overFlappy();
-    if(flappyState.pipes.length===0||flappyState.pipes[flappyState.pipes.length-1].x<60) {
-        let gapY=Math.random()*35+25, gapSize=30;
+    if(flappyState.pipes.length===0||flappyState.pipes[flappyState.pipes.length-1].x<55) {
+        let gapY=Math.random()*30+30, gapSize=25;
         let pipeTop=document.createElement('div'); pipeTop.className='flappy-pipe top'; pipeTop.style.height=(gapY-gapSize/2)+'%';
         let pipeBottom=document.createElement('div'); pipeBottom.className='flappy-pipe bottom'; pipeBottom.style.height=(100-(gapY+gapSize/2))+'%';
         document.getElementById('flappy-container').appendChild(pipeTop);
@@ -375,11 +375,14 @@ function runFlappy(ts) {
         flappyState.pipes.push({x:100,top:pipeTop,bottom:pipeBottom,passed:false});
     }
     flappyState.pipes.forEach((p,i)=>{
-        p.x-=25*dt;
+        p.x-=1.2*dt*60; // mais lento
         p.top.style.left=p.x+'%'; p.bottom.style.left=p.x+'%';
-        if(p.x>12&&p.x<25) {
-            let heroY=flappyState.y, gapTop=parseFloat(p.top.style.height), gapBottom=100-parseFloat(p.bottom.style.height);
-            if(heroY<gapTop+5||heroY>gapBottom-5) overFlappy();
+        let heroTop = flappyState.y - 5;
+        let heroBottom = flappyState.y + 5;
+        let gapTop = parseFloat(p.top.style.height);
+        let gapBottom = 100 - parseFloat(p.bottom.style.height);
+        if(p.x>10&&p.x<25) {
+            if(heroTop < gapTop || heroBottom > gapBottom) overFlappy();
         }
         if(p.x<20&&!p.passed){p.passed=true;flappyState.score++;document.getElementById('flappy-score').textContent=flappyState.score;AudioSys.coin();}
         if(p.x<-20){p.top.remove();p.bottom.remove();flappyState.pipes.splice(i,1);}
@@ -388,108 +391,142 @@ function runFlappy(ts) {
 }
 function overFlappy() {
     flappyState.active=false; AudioSys.crash(); screenShake(); cancelAnimationFrame(flappyAnimFrame);
-    const coinsEarned=flappyState.score*2;
-    GameData.addCoins(coinsEarned); GameData.addXP(flappyState.score);
+    const coins=flappyState.score*2;
+    GameData.addCoins(coins); GameData.addXP(flappyState.score);
     GameData.setRecord('flappy',flappyState.score);
-    updateMissionProgress('flappy1',1); updateMissionProgress('coins30',coinsEarned);
+    updateMissionProgress('flappy1',1); updateMissionProgress('coins30',coins);
     document.getElementById('final-score').textContent='✈️ '+flappyState.score;
-    document.getElementById('final-coins-earned').textContent='+'+coinsEarned+' 🪙';
-    document.getElementById('highscore-display').textContent=GameData.get().records.flappy;
+    document.getElementById('final-coins-earned').textContent='+'+coins+' 🪙';
     document.getElementById('gameover-emoji').textContent='✈️';
-    document.getElementById('new-record-badge').style.display = (flappyState.score>GameData.get().records.flappy)?'block':'none';
     document.getElementById('btn-play-again').onclick=initFlappy;
     showScreen('screen-race-over');
 }
-function quitFlappy() { flappyState.active=false; showScreen('screen-menu'); }
+function quitFlappy(){flappyState.active=false;cancelAnimationFrame(flappyAnimFrame);showScreen('screen-menu');}
 document.getElementById('screen-flappy').addEventListener('touchstart',flap,{passive:true});
 document.getElementById('screen-flappy').addEventListener('mousedown',flap);
 
-// ========== BLOCOS ==========
-let blocksInterval, board, piece, blockSize, blocksLinesCleared=0;
-const COLS=10, ROWS=20;
-const SHAPES=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[0,1,1],[1,1,0]],[[1,1,0],[0,1,1]]];
-const COLORS=['#FF0D72','#0DC2FF','#0DFF72','#F538FF','#FF8E0D','#FFE138','#3877FF'];
-function resizeCanvas() {
-    const parent=document.getElementById('blocks-canvas').parentElement;
-    blockSize=Math.min(Math.floor(parent.clientHeight/ROWS),Math.floor(parent.clientWidth/COLS));
-    const canvas=document.getElementById('blocks-canvas');
-    canvas.width=blockSize*COLS; canvas.height=blockSize*ROWS;
-    drawBoard();
+// ========== BLOCOS (QUEBRA-CABEÇA 8x8) ==========
+let blocksInterval, puzzleBoard, puzzlePieces, selectedPiece = null;
+const PUZZLE_ROWS=8, PUZZLE_COLS=8;
+const PIECE_SHAPES = [
+    [[1,1],[1,1]], // 2x2
+    [[1,1,1]], // 1x3
+    [[1],[1],[1]], // 3x1
+    [[0,1],[1,1]], // L
+    [[1,0],[1,1]], // L invertido
+];
+const PIECE_COLORS = ['#FF595E','#FFCA3A','#8AC926','#1982C4','#6A4C93','#FF924C'];
+function initBlocksPuzzle() {
+    const screen = document.getElementById('screen-blocks');
+    screen.innerHTML = `
+        <div class="score-bar"><span>🧱 BLOCOS</span><span>Pontos: <strong id="puzzle-score">0</strong></span>
+            <button class="btn btn-danger btn-small" onclick="quitBlocks()">Sair</button>
+        </div>
+        <div id="blocks-puzzle">
+            <div id="puzzle-board"></div>
+            <div id="puzzle-pieces"></div>
+        </div>
+    `;
+    puzzleBoard = Array.from({length:PUZZLE_ROWS}, ()=>Array(PUZZLE_COLS).fill(0));
+    renderPuzzleBoard();
+    generatePuzzlePieces();
+    showScreen('screen-blocks');
 }
-function createBoard(){board=Array.from({length:ROWS},()=>Array(COLS).fill(0));}
-function drawBlock(x,y,color){
-    const ctx=document.getElementById('blocks-canvas').getContext('2d');
-    ctx.fillStyle=color; ctx.fillRect(x*blockSize,y*blockSize,blockSize,blockSize);
-    ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.fillRect(x*blockSize,y*blockSize,blockSize,blockSize*0.3);
-    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(x*blockSize,y*blockSize+blockSize*0.7,blockSize,blockSize*0.3);
-    ctx.strokeStyle='#111'; ctx.lineWidth=2; ctx.strokeRect(x*blockSize,y*blockSize,blockSize,blockSize);
-}
-function drawBoard(){
-    const canvas=document.getElementById('blocks-canvas'); if(!canvas.width) return;
-    const ctx=canvas.getContext('2d'); ctx.fillStyle='#1a1a2e'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(board[r][c]) drawBlock(c,r,board[r][c]);
-    if(piece) piece.shape.forEach((row,r)=>row.forEach((v,c)=>{if(v) drawBlock(piece.x+c,piece.y+r,piece.color);}));
-}
-function newPiece(){
-    const idx=Math.floor(Math.random()*SHAPES.length);
-    piece={shape:SHAPES[idx],color:COLORS[idx],x:Math.floor(COLS/2)-1,y:0};
-    if(checkCollision()){clearInterval(blocksInterval);endBlocks();}
-}
-function checkCollision(dx=0,dy=0,shape=piece.shape){
-    for(let r=0;r<shape.length;r++) for(let c=0;c<shape[r].length;c++){
-        if(!shape[r][c]) continue;
-        let nx=piece.x+c+dx, ny=piece.y+r+dy;
-        if(nx<0||nx>=COLS||ny>=ROWS) return true;
-        if(ny>=0&&board[ny][nx]) return true;
+function renderPuzzleBoard() {
+    const boardDiv = document.getElementById('puzzle-board');
+    boardDiv.innerHTML = '';
+    for(let r=0;r<PUZZLE_ROWS;r++) {
+        for(let c=0;c<PUZZLE_COLS;c++) {
+            const cell = document.createElement('div');
+            cell.className = 'puzzle-cell';
+            if(puzzleBoard[r][c]) {
+                cell.style.background = puzzleBoard[r][c];
+                cell.style.boxShadow = 'inset 0 0 8px rgba(255,255,255,0.3)';
+            }
+            cell.onclick = () => placeSelectedPiece(r,c);
+            boardDiv.appendChild(cell);
+        }
     }
-    return false;
 }
-function merge(){piece.shape.forEach((row,r)=>row.forEach((v,c)=>{if(v) board[piece.y+r][piece.x+c]=piece.color;}));}
-function clearLines(){
-    let lines=0;
-    for(let r=ROWS-1;r>=0;r--) if(board[r].every(cell=>cell)){board.splice(r,1);board.unshift(Array(COLS).fill(0));lines++;r++;}
-    if(lines){blocksLinesCleared+=lines;document.getElementById('blocks-lines').textContent=blocksLinesCleared;AudioSys.coin();
-        updateMissionProgress('blocks1',1); updateMissionProgress('coins30',lines*5); GameData.addCoins(lines*3);}
+function generatePuzzlePieces() {
+    const piecesDiv = document.getElementById('puzzle-pieces');
+    piecesDiv.innerHTML = '';
+    const numPieces = 3;
+    for(let i=0;i<numPieces;i++) {
+        const shape = PIECE_SHAPES[Math.floor(Math.random()*PIECE_SHAPES.length)];
+        const color = PIECE_COLORS[Math.floor(Math.random()*PIECE_COLORS.length)];
+        const pieceEl = document.createElement('div');
+        pieceEl.className = 'puzzle-piece';
+        pieceEl.style.background = color;
+        pieceEl.innerHTML = shape.map(row=>row.map(v=>v?'⬛':' ').join('')).join('<br>');
+        pieceEl.dataset.shape = JSON.stringify(shape);
+        pieceEl.dataset.color = color;
+        pieceEl.onclick = (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.puzzle-piece').forEach(p=>p.style.border='');
+            pieceEl.style.border = '3px solid white';
+            selectedPiece = {shape, color, el: pieceEl};
+            AudioSys.blockPlace();
+        };
+        piecesDiv.appendChild(pieceEl);
+    }
 }
-function moveBlock(dir){if(piece&&!checkCollision(dir,0)){piece.x+=dir;drawBoard();}}
-function rotateBlock(){
-    if(!piece) return;
-    const rot=piece.shape[0].map((_,i)=>piece.shape.map(row=>row[i]).reverse());
-    if(!checkCollision(0,0,rot)){piece.shape=rot;AudioSys.playTone(150,'square',0.05);drawBoard();}
+function placeSelectedPiece(r,c) {
+    if(!selectedPiece) return;
+    const {shape, color} = selectedPiece;
+    // Verifica se encaixa
+    let fits = true;
+    for(let i=0;i<shape.length;i++) {
+        for(let j=0;j<shape[i].length;j++) {
+            if(shape[i][j]) {
+                if(r+i>=PUZZLE_ROWS || c+j>=PUZZLE_COLS || puzzleBoard[r+i][c+j]) {
+                    fits = false;
+                }
+            }
+        }
+    }
+    if(!fits) { AudioSys.sequenceError(); return; }
+    // Coloca no tabuleiro
+    for(let i=0;i<shape.length;i++) {
+        for(let j=0;j<shape[i].length;j++) {
+            if(shape[i][j]) {
+                puzzleBoard[r+i][c+j] = color;
+            }
+        }
+    }
+    selectedPiece.el.remove();
+    selectedPiece = null;
+    document.querySelectorAll('.puzzle-piece').forEach(p=>p.style.border='');
+    AudioSys.blockPlace();
+    renderPuzzleBoard();
+    // Verifica linhas completas
+    let cleared = 0;
+    for(let r=PUZZLE_ROWS-1;r>=0;r--) {
+        if(puzzleBoard[r].every(cell=>cell)) {
+            puzzleBoard.splice(r,1);
+            puzzleBoard.unshift(Array(PUZZLE_COLS).fill(0));
+            cleared++;
+            r++;
+        }
+    }
+    if(cleared) {
+        AudioSys.blockClear();
+        let pts = parseInt(document.getElementById('puzzle-score').textContent) + cleared*10;
+        document.getElementById('puzzle-score').textContent = pts;
+        GameData.addCoins(cleared*2);
+        renderPuzzleBoard();
+    }
+    if(document.getElementById('puzzle-pieces').children.length===0) {
+        // Todos encaixados, nova leva
+        generatePuzzlePieces();
+        let pts = parseInt(document.getElementById('puzzle-score').textContent) + 20;
+        document.getElementById('puzzle-score').textContent = pts;
+        AudioSys.win();
+        GameData.addXP(10);
+        updateMissionProgress('blocks1',1);
+    }
 }
-function dropBlock(){
-    if(!piece) return;
-    if(!checkCollision(0,1)) piece.y++; else {merge();clearLines();newPiece();AudioSys.playTone(100,'square',0.1);}
-    drawBoard();
-}
-function initBlocks(){
-    showScreen('screen-blocks'); setTimeout(resizeCanvas,100);
-    window.addEventListener('resize',resizeCanvas);
-    createBoard(); newPiece(); blocksLinesCleared=0;
-    document.getElementById('blocks-lines').textContent='0';
-    if(blocksInterval) clearInterval(blocksInterval);
-    blocksInterval=setInterval(dropBlock,700);
-}
-function endBlocks(){
-    clearInterval(blocksInterval); window.removeEventListener('resize',resizeCanvas);
-    GameData.addXP(20); GameData.addCoins(blocksLinesCleared*3);
-    GameData.setRecord('blocks',blocksLinesCleared); showScreen('screen-menu');
-}
-function quitBlocks(){endBlocks();}
-// Swipe blocos
-let bStartX,bStartY,bLastMoveTime=0;
-const canvasEl=document.getElementById('blocks-canvas');
-canvasEl.addEventListener('touchstart',e=>{bStartX=e.changedTouches[0].screenX;bStartY=e.changedTouches[0].screenY;bLastMoveTime=performance.now();e.preventDefault();},{passive:false});
-canvasEl.addEventListener('touchmove',e=>{
-    if(performance.now()-bLastMoveTime<100) return;
-    let dx=e.changedTouches[0].screenX-bStartX, dy=e.changedTouches[0].screenY-bStartY;
-    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>30){moveBlock(dx>0?1:-1);bStartX=e.changedTouches[0].screenX;bLastMoveTime=performance.now();}
-    else if(dy>40){dropBlock();bStartY=e.changedTouches[0].screenY;bLastMoveTime=performance.now();}
-},{passive:false});
-canvasEl.addEventListener('touchend',e=>{
-    let dx=e.changedTouches[0].screenX-bStartX, dy=e.changedTouches[0].screenY-bStartY;
-    if(Math.abs(dx)<15&&Math.abs(dy)<15) rotateBlock();
-},{passive:false});
+function quitBlocks() { showScreen('screen-menu'); }
 
 // ========== MEMÓRIA ==========
 let memoryTimer, memorySeconds, memoryPairs;
@@ -541,115 +578,152 @@ document.querySelectorAll('.piano-key').forEach(key=>{
 });
 
 // ========== 🎈 BALÕES ==========
-let balloonsInterval, balloonsScore=0, balloonsLives=5, balloonsActive=false;
+let balloonsInterval, balloonsScore=0, balloonsLives=5;
 function initBalloons(){
-    balloonsScore=0; balloonsLives=5; balloonsActive=true;
+    const container = document.getElementById('balloons-container');
+    container.innerHTML = '';
+    balloonsScore=0; balloonsLives=5;
     document.getElementById('balloons-score').textContent='0';
     document.getElementById('balloons-lives').textContent='5';
-    document.querySelectorAll('.balloon').forEach(b=>b.remove());
     showScreen('screen-balloons');
-    if(balloonsInterval) clearInterval(balloonsInterval);
-    balloonsInterval=setInterval(spawnBalloon, 800);
-    document.getElementById('balloons-container').onclick = (e) => {
-        if(e.target.classList.contains('balloon')){
-            const balloon = e.target;
-            const value = parseInt(balloon.dataset.value) || 1;
-            balloonsScore += value;
-            AudioSys.pop();
+    clearInterval(balloonsInterval);
+    balloonsInterval = setInterval(() => {
+        if(balloonsLives<=0) { clearInterval(balloonsInterval); endBalloons(); return; }
+        const balloon = document.createElement('div');
+        balloon.className = 'balloon';
+        const emojis = ['🎈','🎈','🎈','🎁','💣'];
+        const value = emojis.length===5 ? [1,1,1,3,-1] : [1,-1];
+        const idx = Math.floor(Math.random()*emojis.length);
+        balloon.textContent = emojis[idx];
+        balloon.dataset.value = value[idx];
+        balloon.style.left = Math.random()*70 + 5 + '%';
+        balloon.style.bottom = '-10%';
+        balloon.onclick = () => {
+            const v = parseInt(balloon.dataset.value);
+            if(v>0) {
+                balloonsScore += v;
+                AudioSys.pop();
+                spawnParticles('💥',3);
+            } else {
+                balloonsLives--;
+                document.getElementById('balloons-lives').textContent = balloonsLives;
+                AudioSys.crash();
+            }
             balloon.remove();
             document.getElementById('balloons-score').textContent = balloonsScore;
-            spawnParticles('💥',4);
-        }
-    };
-}
-function spawnBalloon(){
-    if(!balloonsActive) return;
-    const container = document.getElementById('balloons-container');
-    const balloon = document.createElement('div');
-    balloon.className = 'balloon';
-    const emojis = ['🎈','🎈','🎈','🎈','🎈','🎁','💣'];
-    const weights = [1,1,1,1,1,3,-2];
-    const idx = Math.floor(Math.random()*emojis.length);
-    balloon.textContent = emojis[idx];
-    balloon.dataset.value = weights[idx];
-    balloon.style.left = Math.random()*80 + 5 + '%';
-    balloon.style.fontSize = (2.5 + Math.random()*1.5) + 'rem';
-    balloon.style.animationDuration = (3 + Math.random()*3) + 's';
-    container.appendChild(balloon);
-    balloon.addEventListener('animationend', () => {
-        if(balloon.dataset.value > 0) {
-            balloonsLives--;
-            document.getElementById('balloons-lives').textContent = balloonsLives;
-            if(balloonsLives <= 0) endBalloons();
-        }
-        balloon.remove();
-    });
+        };
+        container.appendChild(balloon);
+        let pos = -10;
+        const anim = setInterval(() => {
+            pos += 0.8;
+            balloon.style.bottom = pos + '%';
+            if(pos > 100) {
+                clearInterval(anim);
+                if(balloon.dataset.value > 0) {
+                    balloonsLives--;
+                    document.getElementById('balloons-lives').textContent = balloonsLives;
+                }
+                balloon.remove();
+                if(balloonsLives<=0) { clearInterval(balloonsInterval); endBalloons(); }
+            }
+        }, 30);
+    }, 1000);
 }
 function endBalloons(){
-    balloonsActive=false; clearInterval(balloonsInterval);
     document.querySelectorAll('.balloon').forEach(b=>b.remove());
-    GameData.addCoins(Math.floor(balloonsScore*0.5));
-    GameData.addXP(Math.floor(balloonsScore/2));
+    GameData.addCoins(balloonsScore);
+    GameData.addXP(balloonsScore);
     GameData.setRecord('balloons', balloonsScore);
     updateMissionProgress('balloons1', balloonsScore);
-    updateMissionProgress('coins30', Math.floor(balloonsScore*0.5));
     document.getElementById('final-score').textContent='🎈 '+balloonsScore;
-    document.getElementById('final-coins-earned').textContent='+' + Math.floor(balloonsScore*0.5) + ' 🪙';
-    document.getElementById('highscore-display').textContent=GameData.get().records.balloons;
+    document.getElementById('final-coins-earned').textContent='+'+balloonsScore+' 🪙';
     document.getElementById('gameover-emoji').textContent='🎈';
-    document.getElementById('new-record-badge').style.display = (balloonsScore>GameData.get().records.balloons)?'block':'none';
     document.getElementById('btn-play-again').onclick=initBalloons;
     showScreen('screen-race-over');
 }
-function quitBalloons(){balloonsActive=false;clearInterval(balloonsInterval);showScreen('screen-menu');}
+function quitBalloons(){clearInterval(balloonsInterval);showScreen('screen-menu');}
 
 // ========== ❌ JOGO DA VELHA ==========
-let tttBoard, tttTurn, tttGameOver;
+let tttBoard, tttTurn, tttGameOver, tttDifficulty = 'facil';
 function initTicTacToe(){
     tttBoard = Array(9).fill(null); tttTurn = 'X'; tttGameOver = false;
     document.getElementById('ttt-status').textContent = 'Sua vez! (X)';
-    document.querySelectorAll('.ttt-cell').forEach(cell=>{cell.textContent='';cell.className='ttt-cell';});
-    showScreen('screen-tictactoe');
-}
-function resetTicTacToe(){initTicTacToe();}
-document.querySelectorAll('.ttt-cell').forEach(cell=>{
-    cell.addEventListener('click', ()=>{
-        if(tttGameOver || !cell.textContent==='' || tttTurn!=='X') return;
-        const i = parseInt(cell.dataset.i);
-        tttBoard[i] = 'X'; cell.textContent = 'X'; cell.classList.add('x');
-        AudioSys.tttPlace();
-        if(checkTTTWin('X')) { tttGameOver=true; AudioSys.tttWin(); document.getElementById('ttt-status').textContent='Você venceu! 🎉';
-            GameData.addCoins(30); GameData.addXP(10); updateMissionProgress('tictactoe1',1); }
-        else if(tttBoard.every(c=>c)) { tttGameOver=true; document.getElementById('ttt-status').textContent='Empate!'; }
-        else { tttTurn='O'; document.getElementById('ttt-status').textContent='Computador...'; setTimeout(computerTTT,500); }
+    document.querySelectorAll('.ttt-cell').forEach(cell=>{
+        cell.textContent=''; cell.className='ttt-cell';
+        cell.onclick = ()=>tttPlayerMove(parseInt(cell.dataset.i));
     });
-});
-function computerTTT(){
+    showScreen('screen-tictactoe');
+    renderTTTDifficulty();
+}
+function renderTTTDifficulty() {
+    const div = document.createElement('div');
+    div.className = 'ttt-difficulty';
+    div.innerHTML = `
+        <button class="btn btn-small ${tttDifficulty==='facil'?'btn-primary':''}" onclick="tttSetDifficulty('facil')">Fácil</button>
+        <button class="btn btn-small ${tttDifficulty==='medio'?'btn-primary':''}" onclick="tttSetDifficulty('medio')">Médio</button>
+    `;
+    const old = document.querySelector('.ttt-difficulty');
+    if(old) old.replaceWith(div);
+    else document.getElementById('ttt-board').before(div);
+}
+function tttSetDifficulty(level) { tttDifficulty=level; resetTicTacToe(); }
+function tttPlayerMove(i) {
+    if(tttGameOver||tttBoard[i]||tttTurn!=='X') return;
+    tttBoard[i]='X';
+    document.querySelector(`.ttt-cell[data-i="${i}"]`).textContent='X';
+    document.querySelector(`.ttt-cell[data-i="${i}"]`).classList.add('x');
+    AudioSys.tttPlace();
+    if(checkTTTWin('X')){tttGameOver=true;AudioSys.tttWin();document.getElementById('ttt-status').textContent='Você venceu! 🎉';
+        GameData.addCoins(30);GameData.addXP(10);updateMissionProgress('tictactoe1',1);}
+    else if(tttBoard.every(c=>c)){tttGameOver=true;document.getElementById('ttt-status').textContent='Empate!';}
+    else {tttTurn='O';document.getElementById('ttt-status').textContent='Computador...';setTimeout(computerTTT,400);}
+}
+function computerTTT() {
     if(tttGameOver) return;
-    const empty = tttBoard.map((v,i)=>v===null?i:null).filter(v=>v!==null);
-    const move = empty[Math.floor(Math.random()*empty.length)];
-    tttBoard[move] = 'O';
+    let move;
+    if(tttDifficulty==='facil') {
+        const empty = tttBoard.map((v,i)=>v===null?i:null).filter(v=>v!==null);
+        move = empty[Math.floor(Math.random()*empty.length)];
+    } else {
+        // Médio: tenta vencer ou bloquear
+        move = tttFindBestMove();
+    }
+    tttBoard[move]='O';
     const cell = document.querySelector(`.ttt-cell[data-i="${move}"]`);
-    cell.textContent = 'O'; cell.classList.add('o');
+    cell.textContent='O'; cell.classList.add('o');
     AudioSys.tttPlace();
     if(checkTTTWin('O')){tttGameOver=true;AudioSys.crash();document.getElementById('ttt-status').textContent='Computador venceu! 😢';}
     else if(tttBoard.every(c=>c)){tttGameOver=true;document.getElementById('ttt-status').textContent='Empate!';}
     else {tttTurn='X';document.getElementById('ttt-status').textContent='Sua vez! (X)';}
 }
+function tttFindBestMove() {
+    const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for(let w of wins) {
+        const vals = w.map(i=>tttBoard[i]);
+        if(vals.filter(v=>v==='O').length===2 && vals.includes(null)) return w[vals.indexOf(null)];
+    }
+    for(let w of wins) {
+        const vals = w.map(i=>tttBoard[i]);
+        if(vals.filter(v=>v==='X').length===2 && vals.includes(null)) return w[vals.indexOf(null)];
+    }
+    const empty = tttBoard.map((v,i)=>v===null?i:null).filter(v=>v!==null);
+    return empty[Math.floor(Math.random()*empty.length)];
+}
 function checkTTTWin(p){
     const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     return wins.some(w=>w.every(i=>tttBoard[i]===p));
 }
+function resetTicTacToe(){initTicTacToe();}
 
 // ========== 🌈 SEQUÊNCIA DE CORES ==========
 let seqSequence=[], seqPlayerIndex=0, seqLevel=1, seqShowing=false, seqTimeout;
-const seqNotes=[523,659,784,1047]; // Cores: vermelho, amarelo, verde, azul
+const seqNotes = [523,659,784,1047];
 function initSequence(){
     seqSequence=[]; seqPlayerIndex=0; seqLevel=1; seqShowing=false;
     document.getElementById('seq-level').textContent='1';
     document.getElementById('seq-status').textContent='Observe a sequência...';
     showScreen('screen-sequence');
-    setTimeout(nextSequenceRound,600);
+    setTimeout(nextSequenceRound,800);
 }
 function resetSequence(){initSequence();}
 function nextSequenceRound(){
@@ -664,8 +738,8 @@ function playSequence(i){
     const btn = document.querySelector(`.seq-btn[data-color="${seqSequence[i]}"]`);
     btn.classList.add('bright');
     AudioSys.sequenceNote(seqNotes[seqSequence[i]]);
-    setTimeout(()=>btn.classList.remove('bright'),300);
-    seqTimeout = setTimeout(()=>playSequence(i+1),600);
+    setTimeout(()=>btn.classList.remove('bright'),400);
+    seqTimeout = setTimeout(()=>playSequence(i+1),700);
 }
 document.querySelectorAll('.seq-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
@@ -677,12 +751,12 @@ document.querySelectorAll('.seq-btn').forEach(btn=>{
         if(seqSequence[seqPlayerIndex]!==color){
             AudioSys.sequenceError();
             document.getElementById('seq-status').textContent='Errou! Fim de jogo.';
-            const coinsEarned = Math.floor(seqLevel*2);
-            GameData.addCoins(coinsEarned); GameData.addXP(seqLevel);
+            const coins = Math.floor(seqLevel*2);
+            GameData.addCoins(coins); GameData.addXP(seqLevel);
             GameData.setRecord('sequence',seqLevel);
             updateMissionProgress('sequence1',seqLevel);
-            updateMissionProgress('coins30',coinsEarned);
-            seqShowing=true; // travar
+            updateMissionProgress('coins30',coins);
+            seqShowing=true;
             setTimeout(()=>showScreen('screen-menu'),2000);
             return;
         }
@@ -691,7 +765,7 @@ document.querySelectorAll('.seq-btn').forEach(btn=>{
             seqLevel++;
             document.getElementById('seq-level').textContent=seqLevel;
             document.getElementById('seq-status').textContent='Acertou! Próxima...';
-            setTimeout(nextSequenceRound,800);
+            setTimeout(nextSequenceRound,1000);
         }
     });
 });
@@ -707,30 +781,24 @@ function showModal(title,text,action){
 }
 function closeModal(){
     document.getElementById('modal-overlay').style.display='none';
-    if(document.getElementById('screen-race').classList.contains('active')){
-        raceState.lastTime=performance.now();raceState.active=true;
-        reqAnimFrame=requestAnimationFrame(runRace);
-    }
 }
 function confirmQuit(){document.getElementById('modal-overlay').style.display='none';if(quitAction)quitAction();}
 
 // ========== TECLADO ==========
 window.addEventListener('keydown',e=>{
-    if(raceState.active){
-        if(e.key==='ArrowLeft') moveLane(-1); if(e.key==='ArrowRight') moveLane(1);
-        if(e.key===' '||e.key==='ArrowUp') jump();
-    } else if(document.getElementById('screen-blocks').classList.contains('active')){
-        if(e.key==='ArrowLeft') moveBlock(-1); if(e.key==='ArrowRight') moveBlock(1);
-        if(e.key==='ArrowUp') rotateBlock(); if(e.key==='ArrowDown') dropBlock();
-    } else if(flappyState.active && e.key===' ') flap();
+    if(flappyState.active && e.key===' ') flap();
+    if(document.getElementById('screen-blocks').classList.contains('active') && selectedPiece) {
+        // navegação básica
+    }
 });
 
 // ========== INICIALIZAÇÃO ==========
 window.addEventListener('DOMContentLoaded',()=>{
     const hero = GameData.get().currentHero;
-    document.getElementById('race-hero').textContent = hero;
-    document.getElementById('flappy-hero').textContent = hero;
-    initPool();
+    const raceHero = document.getElementById('race-hero');
+    const flappyHero = document.getElementById('flappy-hero');
+    if(raceHero) raceHero.textContent = hero;
+    if(flappyHero) flappyHero.textContent = hero;
     checkDailyLogin();
     updatePlayerStats();
     updateBestScores();
