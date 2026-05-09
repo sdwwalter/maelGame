@@ -1,12 +1,13 @@
 {
   "name": "Aventura Kids",
   "short_name": "Aventura Kids",
-  "description": "Uma coleção de jogos divertidos para crianças: Corrida, Memória e Blocos!",
+  "description": "Coleção de jogos infantis: Corrida, Flappy, Blocos, Piano e Memória. Progressão, missões e diversão!",
   "start_url": "index.html",
   "display": "fullscreen",
   "background_color": "#2c3e50",
   "theme_color": "#FF6B35",
   "orientation": "portrait",
+  "categories": ["games", "kids", "educational"],
   "icons": [
     {
       "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌈</text></svg>",
