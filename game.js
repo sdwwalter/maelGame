@@ -1,806 +1,1023 @@
-// ========== AVENTURA KIDS – game.js COMPLETO V3 ==========
+// ========== AVENTURA KIDS – game.js v4 ==========
+
+// ---------- UTIL ----------
+function $(id) { return document.getElementById(id); }
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 // ---------- DADOS PERSISTENTES ----------
 const GameData = {
-    _data: JSON.parse(localStorage.getItem('ak_data')) || {
-        level: 1, xp: 0, coins: 0,
-        streak: 0, lastLoginDate: null,
-        missions: {}, missionsDate: null,
-        currentHero: '🐶',
-        records: { race: 0, flappy: 0, blocks: 0, memory: 999, balloons: 0, sequence: 0 }
-    },
-    save() { localStorage.setItem('ak_data', JSON.stringify(this._data)); },
-    get() { return this._data; },
-    addCoins(amount) { this._data.coins += amount; this.save(); updatePlayerStats(); },
-    addXP(amount) {
-        this._data.xp += amount;
-        const xpForNext = this.xpForLevel(this._data.level + 1);
-        if (this._data.xp >= xpForNext) {
-            this._data.xp -= xpForNext;
-            this._data.level++;
-            this._data.coins += 15;
-            this.save();
-            showLevelUpEffect();
-        }
-        this.save();
-        updatePlayerStats();
-    },
-    xpForLevel(lv) { return Math.floor(80 * Math.pow(1.6, lv - 1)); },
-    setHero(hero) { this._data.currentHero = hero; this.save(); },
-    setRecord(game, value) {
-        if (game === 'memory') { if (value < this._data.records.memory) this._data.records.memory = value; }
-        else { if (value > this._data.records[game]) this._data.records[game] = value; }
-        this.save(); updateBestScores();
+  _data: null,
+  _load() {
+    try {
+      const saved = localStorage.getItem('ak_data_v4');
+      this._data = saved ? JSON.parse(saved) : this._defaults();
+    } catch(e) { this._data = this._defaults(); }
+  },
+  _defaults() {
+    return {
+      level: 1, xp: 0, coins: 0,
+      streak: 0, lastLoginDate: null,
+      missions: [], missionsDate: null,
+      currentHero: '🐶',
+      records: { race: 0, flappy: 0, blocks: 0, memory: 999, balloons: 0, sequence: 0 }
+    };
+  },
+  save() { try { localStorage.setItem('ak_data_v4', JSON.stringify(this._data)); } catch(e) {} },
+  // retorna cópia — nunca referência direta
+  get() { return { ...this._data, records: { ...this._data.records }, missions: [...(this._data.missions||[])] }; },
+  patch(changes) { Object.assign(this._data, changes); this.save(); },
+  addCoins(amount) {
+    if (amount <= 0) return;
+    this._data.coins += amount;
+    this.save();
+    updatePlayerStats();
+    showFloatingCoins(amount);
+  },
+  addXP(amount) {
+    this._data.xp += amount;
+    const xpNeeded = this.xpForLevel(this._data.level + 1);
+    if (this._data.xp >= xpNeeded) {
+      this._data.xp -= xpNeeded;
+      this._data.level++;
+      this._data.coins += 15;
+      this.save();
+      showLevelUpEffect();
     }
+    this.save();
+    updatePlayerStats();
+  },
+  xpForLevel(lv) { return Math.floor(80 * Math.pow(1.6, lv - 1)); },
+  setHero(h) { this._data.currentHero = h; this.save(); },
+  // retorna true se é novo recorde
+  setRecord(game, value) {
+    const rec = this._data.records;
+    const isNew = game === 'memory' ? value < rec.memory : value > rec[game];
+    if (isNew) { rec[game] = value; this.save(); updateBestScores(); }
+    return isNew;
+  }
 };
 
-// ---------- ÁUDIO ----------
+// ---------- ÁUDIO — lazy init (AudioContext só após gesto) ----------
 const AudioSys = {
-    ctx: new (window.AudioContext || window.webkitAudioContext)(),
-    playTone(freq, type, dur, vol = 0.1) {
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(); osc.stop(this.ctx.currentTime + dur);
-    },
-    jump() { this.playTone(400,'sine',0.15); setTimeout(()=>this.playTone(600,'sine',0.15),80); },
-    coin() { this.playTone(900,'sine',0.08); setTimeout(()=>this.playTone(1300,'sine',0.12),70); },
-    crash() { this.playTone(100,'sawtooth',0.5); this.playTone(70,'square',0.3); },
-    win() { [500,700,900,1100].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.15),i*100)); },
-    flap() { this.playTone(350,'triangle',0.08); },
-    levelUp() { [600,800,1000,1200].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.2),i*120)); },
-    pop() { this.playTone(600,'sine',0.1); this.playTone(400,'sine',0.15); },
-    tttPlace() { this.playTone(500,'sine',0.1); },
-    tttWin() { this.playTone(700,'sine',0.15); setTimeout(()=>this.playTone(900,'sine',0.2),150); },
-    sequenceNote(freq) { this.playTone(freq,'sine',0.25,0.2); },
-    sequenceError() { this.playTone(150,'sawtooth',0.4); },
-    blockPlace() { this.playTone(200,'square',0.1); },
-    blockClear() { [300,500,700].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.15),i*100)); }
+  _ctx: null,
+  get ctx() {
+    if (!this._ctx) this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return this._ctx;
+  },
+  playTone(freq, type, dur, vol = 0.1) {
+    try {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+      osc.connect(gain); gain.connect(this.ctx.destination);
+      osc.start(); osc.stop(this.ctx.currentTime + dur);
+    } catch(e) {}
+  },
+  jump()  { this.playTone(400,'sine',0.15); setTimeout(()=>this.playTone(620,'sine',0.15),80); },
+  coin()  { this.playTone(900,'sine',0.08); setTimeout(()=>this.playTone(1320,'sine',0.12),70); },
+  crash() { this.playTone(100,'sawtooth',0.5,0.4); this.playTone(70,'square',0.3,0.3); },
+  win()   { [500,700,900,1100].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.2),i*100)); },
+  flap()  { this.playTone(350,'triangle',0.09); },
+  levelUp() { [600,800,1000,1200,1400].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.25),i*110)); },
+  pop()   { this.playTone(720,'sine',0.1); setTimeout(()=>this.playTone(500,'sine',0.12),55); },
+  tttPlace()  { this.playTone(500,'sine',0.1); },
+  tttWin()    { [700,900,1100].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.22),i*120)); },
+  seqNote(freq) { this.playTone(freq,'sine',0.3,0.22); },
+  seqError()    { this.playTone(150,'sawtooth',0.45); },
+  blockPlace() { this.playTone(220,'square',0.08); },
+  blockClear() { [300,500,700,900].forEach((f,i)=>setTimeout(()=>this.playTone(f,'sine',0.18),i*70)); },
+  tap()   { this.playTone(820,'sine',0.04); }
 };
 
 // ---------- EFEITOS VISUAIS ----------
 function showLevelUpEffect() {
-    const div = document.createElement('div');
-    div.className = 'level-up-toast'; div.textContent = '🎉 Nível ' + GameData.get().level + '!';
-    document.body.appendChild(div);
-    setTimeout(()=>div.remove(),3000);
-    screenShake(); spawnParticles('✨');
+  AudioSys.levelUp();
+  spawnParticles('⭐', 20); spawnParticles('🎉', 10);
+  const div = document.createElement('div');
+  div.className = 'level-up-toast';
+  div.innerHTML = `🎉 Nível ${GameData.get().level}! 🎉`;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 3200);
+  screenShake();
 }
 function screenShake() {
-    const el = document.querySelector('.game-container');
-    el.style.animation = 'none'; el.offsetHeight;
-    el.style.animation = 'shake 0.4s ease';
-    setTimeout(()=>el.style.animation='',400);
+  const el = document.querySelector('.game-container');
+  if (!el) return;
+  el.style.animation = 'none'; el.offsetHeight;
+  el.style.animation = 'shake 0.45s ease';
+  setTimeout(() => el.style.animation = '', 450);
 }
-function spawnParticles(emoji, count=12) {
-    for(let i=0;i<count;i++) {
-        const p = document.createElement('div');
-        p.className='particle'; p.textContent=emoji;
-        p.style.left=Math.random()*100+'%';
-        p.style.animationDuration=(1+Math.random()*1.5)+'s';
-        document.body.appendChild(p);
-        setTimeout(()=>p.remove(),2500);
-    }
+function spawnParticles(emoji, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = emoji;
+    p.style.cssText = `
+      left:${Math.random()*100}%;
+      animation-duration:${0.9+Math.random()*1.4}s;
+      animation-delay:${Math.random()*0.35}s;
+      font-size:${1.4+Math.random()*1.6}rem;
+    `;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 3000);
+  }
 }
-function showFloatingText(x,y,text,color='#FFD700') {
-    const el = document.createElement('div');
-    el.className='floating-text'; el.textContent=text;
-    el.style.left=x+'px'; el.style.top=y+'px'; el.style.color=color;
-    document.body.appendChild(el);
-    setTimeout(()=>el.remove(),1500);
+function showFloatingCoins(amount) {
+  const el = document.createElement('div');
+  el.className = 'floating-coins';
+  el.textContent = '+' + amount + ' 🪙';
+  el.style.cssText = `left:${25+Math.random()*50}%; top:25%;`;
+  const gc = document.querySelector('.game-container');
+  if (gc) { gc.appendChild(el); setTimeout(() => el.remove(), 1300); }
 }
 function showToast(msg) {
-    const toast = document.getElementById('toast');
-    if(!toast) return;
-    toast.textContent=msg; toast.classList.add('show');
-    setTimeout(()=>toast.classList.remove('show'),2500);
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-// ---------- ATUALIZAÇÕES DE INTERFACE ----------
+// ---------- HUD ----------
 function updatePlayerStats() {
-    const data = GameData.get();
-    const lvEl = document.getElementById('level-display');
-    const coinEl = document.getElementById('coins-display');
-    const strEl = document.getElementById('streak-display');
-    if(lvEl) lvEl.textContent = data.level;
-    if(coinEl) coinEl.textContent = data.coins;
-    if(strEl) strEl.textContent = data.streak;
+  const d = GameData.get();
+  const set = (id, v) => { const e=$(id); if(e) e.textContent=v; };
+  set('level-display', d.level);
+  set('coins-display', d.coins);
+  set('streak-display', d.streak);
+  const xpBar = $('xp-bar-fill');
+  if (xpBar) {
+    const pct = (d.xp / GameData.xpForLevel(d.level + 1)) * 100;
+    xpBar.style.width = Math.min(pct, 100) + '%';
+  }
 }
 function updateBestScores() {
-    const r = GameData.get().records;
-    const be = (id,val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
-    be('best-race', '🏆'+r.race);
-    be('best-flappy', '🏆'+r.flappy);
-    be('best-blocks', '🏆'+r.blocks);
-    be('best-memory', '⏱'+(r.memory===999?'--':r.memory+'s'));
-    be('best-balloons', '🏆'+r.balloons);
-    be('best-sequence', '🏆'+r.sequence);
+  const r = GameData.get().records;
+  const be = (id, v) => { const e=$(id); if(e) e.textContent=v; };
+  be('best-race',     '🏆'+r.race);
+  be('best-flappy',   '🏆'+r.flappy);
+  be('best-blocks',   '🏆'+r.blocks);
+  be('best-memory',   r.memory===999 ? '⏱--' : '⏱'+r.memory+'s');
+  be('best-balloons', '🏆'+r.balloons);
+  be('best-sequence', '🏆'+r.sequence);
+}
+function updateHeroDisplay() {
+  const hero = GameData.get().currentHero;
+  const e = $('menu-hero-display');
+  if (e) e.textContent = hero;
+}
+
+// ---------- GAME OVER CENTRAL ----------
+function showGameOver({ score, coinsEarned, emoji, record, isNewRecord, playAgainFn }) {
+  $('final-score').textContent = emoji + ' ' + score;
+  $('final-coins-earned').textContent = '+' + coinsEarned + ' 🪙';
+  $('highscore-display').textContent = record;
+  $('gameover-emoji').textContent = emoji;
+  $('btn-play-again').onclick = playAgainFn;
+  const badge = $('new-record-badge');
+  if (badge) badge.style.display = isNewRecord ? 'block' : 'none';
+  if (isNewRecord) { spawnParticles('🏆', 10); AudioSys.win(); }
+  showScreen('screen-race-over');
 }
 
 // ---------- SISTEMA DIÁRIO ----------
 function checkDailyLogin() {
-    const data = GameData.get();
-    const today = new Date().toDateString();
-    if(data.lastLoginDate !== today) {
-        const yesterday = new Date(Date.now()-86400000).toDateString();
-        data.streak = (data.lastLoginDate === yesterday) ? data.streak+1 : 1;
-        data.lastLoginDate = today;
-        generateDailyMissions();
-        GameData.save();
-        showScreen('screen-reward');
-    }
-    updatePlayerStats();
+  const data = GameData.get();
+  const today = new Date().toDateString();
+  if (data.lastLoginDate !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    const newStreak = data.lastLoginDate === yesterday ? data.streak + 1 : 1;
+    GameData.patch({ streak: newStreak, lastLoginDate: today });
+    generateDailyMissions();
+    showScreen('screen-reward');
+  }
+  updatePlayerStats();
 }
 function renderStreakBar() {
-    const bar = document.getElementById('streak-days-bar');
-    if(!bar) return;
-    const streak = GameData.get().streak;
-    bar.innerHTML='';
-    for(let i=1;i<=7;i++) {
-        const dot = document.createElement('div');
-        dot.className='streak-day-dot'+(i<=streak?' active':'');
-        dot.textContent = i<=streak?'✅':i;
-        bar.appendChild(dot);
-    }
-    document.getElementById('reward-streak-msg').textContent = 'Sequência: '+streak+' dia(s)!';
-    const coins = [20,30,50,70,100,150,200];
-    document.getElementById('reward-coins-amount').textContent = coins[Math.min(streak,7)-1];
+  const bar = $('streak-days-bar');
+  if (!bar) return;
+  const streak = GameData.get().streak;
+  bar.innerHTML = '';
+  for (let i = 1; i <= 7; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'streak-day-dot' + (i <= streak ? ' active' : '');
+    dot.textContent = i <= streak ? '✅' : i;
+    bar.appendChild(dot);
+  }
+  $('reward-streak-msg').textContent = `Sequência: ${streak} dia${streak!==1?'s':''}!`;
+  const coinsTable = [20, 30, 50, 70, 100, 150, 200];
+  $('reward-coins-amount').textContent = coinsTable[Math.min(streak, 7) - 1];
 }
 function claimDailyReward() {
-    const data = GameData.get();
-    const coins = [20,30,50,70,100,150,200][Math.min(data.streak,7)-1];
-    GameData.addCoins(coins);
-    showToast('Resgatado +'+coins+' 🪙!');
-    spawnParticles('🪙',8);
-    showScreen('screen-menu');
+  const data = GameData.get();
+  const coins = [20, 30, 50, 70, 100, 150, 200][Math.min(data.streak, 7) - 1];
+  GameData.addCoins(coins);
+  spawnParticles('🪙', 14); spawnParticles('✨', 8);
+  showToast('Resgatado +' + coins + ' 🪙!');
+  setTimeout(() => showScreen('screen-menu'), 500);
 }
 
-// ---------- MISSÕES DIÁRIAS ----------
+// ---------- MISSÕES ----------
 const MISSION_POOL = [
-    { id:'race1', desc:'Correr 1 vez', target:1, reward:30, check:s=>s.race>=1 },
-    { id:'race3', desc:'Correr 3 vezes', target:3, reward:70, check:s=>s.race>=3 },
-    { id:'flappy1', desc:'Jogar Flappy', target:1, reward:40, check:s=>s.flappy>=1 },
-    { id:'memory1', desc:'Completar Memória', target:1, reward:50, check:s=>s.memory>=1 },
-    { id:'blocks1', desc:'Jogar Blocos', target:1, reward:40, check:s=>s.blocks>=1 },
-    { id:'balloons1', desc:'Estourar 20 balões', target:20, reward:60, check:s=>s.balloons>=20 },
-    { id:'tictactoe1', desc:'Vencer 1 Jogo da Velha', target:1, reward:50, check:s=>s.tictactoe>=1 },
-    { id:'sequence1', desc:'Acertar 3 sequências', target:3, reward:60, check:s=>s.sequence>=3 },
-    { id:'coins30', desc:'Ganhar 30 moedas', target:30, reward:50, check:s=>s.coinsEarned>=30 }
+  { id:'race1',      desc:'Correr 1 vez',          target:1,  reward:30 },
+  { id:'race3',      desc:'Correr 3 vezes',         target:3,  reward:70 },
+  { id:'flappy1',    desc:'Jogar Flappy',           target:1,  reward:40 },
+  { id:'memory1',    desc:'Completar Memória',      target:1,  reward:50 },
+  { id:'blocks1',    desc:'Jogar Blocos',           target:1,  reward:40 },
+  { id:'balloons20', desc:'Estourar 20 balões',     target:20, reward:60 },
+  { id:'tictactoe1', desc:'Vencer Jogo da Velha',   target:1,  reward:50 },
+  { id:'sequence3',  desc:'Acertar 3 sequências',   target:3,  reward:60 },
+  { id:'coins30',    desc:'Ganhar 30 moedas',       target:30, reward:50 }
 ];
 function generateDailyMissions() {
-    const data = GameData.get();
-    data.missionsDate = new Date().toDateString();
-    const shuffled = MISSION_POOL.sort(()=>Math.random()-0.5);
-    data.missions = shuffled.slice(0,3).map(m=>({...m,progress:0,completed:false}));
-    GameData.save();
-    renderMissions();
+  const picked = shuffle(MISSION_POOL).slice(0, 3).map(m => ({ ...m, progress: 0, completed: false }));
+  GameData.patch({ missions: picked, missionsDate: new Date().toDateString() });
+  renderMissions();
 }
-function updateMissionProgress(id, amount=1) {
-    const data = GameData.get();
-    if(data.missionsDate !== new Date().toDateString()) return;
-    const m = data.missions?.find(x=>x.id===id);
-    if(m && !m.completed) {
-        m.progress += amount;
-        if(m.progress >= m.target) { m.completed=true; GameData.addCoins(m.reward); showToast('Missão concluída: +'+m.reward+' 🪙'); }
-        GameData.save(); renderMissions();
+function updateMissionProgress(id, amount = 1) {
+  const data = GameData.get();
+  if (data.missionsDate !== new Date().toDateString()) return;
+  const m = data.missions?.find(x => x.id === id);
+  if (m && !m.completed) {
+    m.progress = Math.min(m.progress + amount, m.target);
+    if (m.progress >= m.target) {
+      m.completed = true;
+      GameData.addCoins(m.reward);
+      showToast('Missão! +' + m.reward + ' 🪙');
+      spawnParticles('🎯', 6);
     }
+    GameData.patch({ missions: data.missions });
+    renderMissions();
+  }
 }
 function renderMissions() {
-    const container = document.getElementById('missions-list');
-    if(!container) return;
-    const missions = GameData.get().missions || [];
-    container.innerHTML = missions.map(m=>
-        `<div class="mission-item ${m.completed?'completed':''}">
-            <span>${m.desc}</span>
-            <span>${m.completed?'✅':m.progress+'/'+m.target}</span>
-            <span style="color:#FF6B35;">+${m.reward}🪙</span>
-        </div>`
-    ).join('');
+  const container = $('missions-list');
+  if (!container) return;
+  const missions = GameData.get().missions || [];
+  if (!missions.length) {
+    container.innerHTML = '<div class="mission-empty">Volte amanhã! 🌙</div>';
+    return;
+  }
+  container.innerHTML = missions.map(m => {
+    const pct = m.completed ? 100 : Math.round((m.progress / m.target) * 100);
+    return `
+      <div class="mission-item ${m.completed ? 'completed' : ''}">
+        <span class="mission-desc">${m.desc}</span>
+        <div class="mission-progress-wrap">
+          <div class="mission-progress-bar" style="width:${pct}%"></div>
+        </div>
+        <span class="mission-count">${m.completed ? '✅' : m.progress+'/'+m.target}</span>
+        <span class="mission-reward">+${m.reward}🪙</span>
+      </div>`;
+  }).join('');
 }
 
-// ---------- NAVEGAÇÃO DE TELAS ----------
+// ---------- NAVEGAÇÃO ----------
+let _activeCleanup = null;
 function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-    const target = document.getElementById(id);
-    if(target) target.classList.add('active');
-    // pausar loops
-    if(id!=='screen-race') { if(raceState) raceState.active=false; clearTimeout(raceTimeout); }
-    if(id!=='screen-flappy') { if(flappyState) flappyState.active=false; cancelAnimationFrame(flappyAnimFrame); }
-    clearInterval(blocksInterval); clearInterval(balloonsInterval);
-    clearInterval(memoryTimer); clearTimeout(seqTimeout);
-    if(id==='screen-menu'){updatePlayerStats();updateBestScores();renderMissions();}
-    if(id==='screen-reward') renderStreakBar();
-    if(id==='screen-tictactoe') resetTicTacToe();
-    if(id==='screen-sequence') resetSequence();
-    if(id==='screen-blocks') initBlocksPuzzle();
+  if (_activeCleanup) { try { _activeCleanup(); } catch(e){} _activeCleanup = null; }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const target = $(id);
+  if (target) target.classList.add('active');
+  if (id === 'screen-menu')   { updatePlayerStats(); updateBestScores(); renderMissions(); updateHeroDisplay(); }
+  if (id === 'screen-reward') renderStreakBar();
 }
 
 // ---------- HERÓI ----------
 function setHero(emoji) {
-    GameData.setHero(emoji);
-    document.getElementById('race-hero').textContent = emoji;
-    document.getElementById('flappy-hero').textContent = emoji;
-    showScreen('screen-menu');
+  GameData.setHero(emoji);
+  const h1 = $('flappy-hero'); if (h1) h1.textContent = emoji;
+  spawnParticles(emoji, 12);
+  AudioSys.win();
+  showScreen('screen-menu');
 }
 
-// ========== CORRIDA 2D LATERAL ==========
-let raceState = null; let raceTimeout = null;
-function initRace() {
-    const heroEmoji = GameData.get().currentHero;
-    // Monta a tela dinamicamente
-    const screen = document.getElementById('screen-race');
-    screen.innerHTML = `
-        <div id="runner-container">
-            <div id="runner-ground"></div>
-            <div id="runner-hero">${heroEmoji}</div>
-            <div id="runner-score-display">⭐ 0</div>
-        </div>
-    `;
-    raceState = {
-        active: true, score: 0, jumping: false, sliding: false,
-        obstacleActive: false, speed: 2.5, frameId: null
-    };
-    document.getElementById('runner-score-display').textContent = '⭐ 0';
-    screen.onclick = (e) => {
-        if(!raceState.active) return;
-        if(raceState.jumping) return;
-        raceState.jumping = true;
-        const hero = document.getElementById('runner-hero');
-        hero.classList.add('jumping');
-        AudioSys.jump();
-        setTimeout(() => {
-            hero.classList.remove('jumping');
-            raceState.jumping = false;
-        }, 500);
-    };
-    // Deslizar: touch de arrastar para baixo
-    let touchY = 0;
-    screen.addEventListener('touchstart', e => { touchY = e.touches[0].clientY; });
-    screen.addEventListener('touchmove', e => {
-        if(!raceState.active) return;
-        const dy = e.touches[0].clientY - touchY;
-        if(dy > 30 && !raceState.sliding && !raceState.jumping) {
-            raceState.sliding = true;
-            document.getElementById('runner-hero').classList.add('sliding');
-            setTimeout(() => {
-                raceState.sliding = false;
-                document.getElementById('runner-hero').classList.remove('sliding');
-            }, 400);
-        }
-    });
-    showScreen('screen-race');
-    raceState.frameId = requestAnimationFrame(runnerLoop);
-}
-function runnerLoop(ts) {
-    if(!raceState || !raceState.active) return;
-    if(!raceState.obstacleActive || !document.querySelector('.runner-obstacle')) {
-        spawnRunnerObstacle();
-    }
-    const obs = document.querySelector('.runner-obstacle');
-    if(obs) {
-        const heroRect = document.getElementById('runner-hero').getBoundingClientRect();
-        const obsRect = obs.getBoundingClientRect();
-        const containerRect = document.getElementById('runner-container').getBoundingClientRect();
-        // Colisão simples
-        const heroBottom = heroRect.bottom - containerRect.top;
-        const heroTop = heroRect.top - containerRect.top;
-        const obsLeft = obsRect.left - containerRect.left;
-        const obsRight = obsRect.right - containerRect.left;
-        if(obsLeft < heroRect.right - containerRect.left && obsRight > heroRect.left - containerRect.left) {
-            if(!raceState.jumping && !raceState.sliding) {
-                // Colidiu
-                raceState.active = false;
-                document.querySelector('.runner-obstacle')?.remove();
-                AudioSys.crash(); screenShake();
-                endRunner();
-                return;
-            } else if(raceState.sliding && obs.textContent === '🪨') {
-                // Desviou de pedra
-            } else if(raceState.jumping && obs.textContent === '📦') {
-                // Passou por cima de caixa
-            } else {
-                // Colidiu mesmo pulando/agachando
-                raceState.active = false;
-                document.querySelector('.runner-obstacle')?.remove();
-                AudioSys.crash(); screenShake();
-                endRunner();
-                return;
-            }
-        }
-        if(obsRect.right < containerRect.left + 50 && !obs.dataset.scored) {
-            raceState.score += 10;
-            document.getElementById('runner-score-display').textContent = '⭐ ' + raceState.score;
-            obs.dataset.scored = '1';
-            AudioSys.coin();
-        }
-        if(obsRect.right < containerRect.left - 50) obs.remove();
-    }
-    raceState.frameId = requestAnimationFrame(runnerLoop);
-}
-function spawnRunnerObstacle() {
-    const container = document.getElementById('runner-container');
-    if(!container) return;
-    const obs = document.createElement('div');
-    obs.className = 'runner-obstacle';
-    obs.textContent = Math.random()>0.5 ? '🪨' : '📦';
-    container.appendChild(obs);
-    raceState.obstacleActive = true;
-}
-function endRunner() {
-    cancelAnimationFrame(raceState.frameId);
-    const coins = Math.floor(raceState.score/2);
-    GameData.addCoins(coins);
-    GameData.addXP(Math.floor(raceState.score/3));
-    GameData.setRecord('race', raceState.score);
-    updateMissionProgress('race1',1); updateMissionProgress('coins30',coins);
-    document.getElementById('final-score').textContent = '⭐ '+raceState.score;
-    document.getElementById('final-coins-earned').textContent = '+'+coins+' 🪙';
-    document.getElementById('highscore-display').textContent = GameData.get().records.race;
-    document.getElementById('gameover-emoji').textContent = '🏃';
-    document.getElementById('btn-play-again').onclick = initRace;
-    showScreen('screen-race-over');
-}
+// ===================== CORRIDA =====================
+const Race = {
+  state:      null,
+  frameId:    null,
+  obstacleEl: null,
+  obstacleX:  110,
 
-// ========== FLAPPY (AJUSTADO) ==========
-let flappyState = { active:false, y:50, vel:0, gravity:0.4, jump:-6, score:0, pipes:[], lastTime:0 };
-let flappyAnimFrame;
-function initFlappy() {
-    flappyState = { active:true, y:50, vel:0, gravity:0.4, jump:-6, score:0, pipes:[], lastTime:performance.now() };
-    document.getElementById('flappy-score').textContent='0';
-    document.getElementById('flappy-hero').style.top='50%';
-    document.querySelectorAll('.flappy-pipe').forEach(p=>p.remove());
-    showScreen('screen-flappy');
-    flappyAnimFrame=requestAnimationFrame(runFlappy);
-}
-function flap() { if(!flappyState.active) return; flappyState.vel=flappyState.jump; AudioSys.flap(); }
-function runFlappy(ts) {
-    if(!flappyState.active) return;
-    const dt=Math.min((ts-flappyState.lastTime)/1000,0.1); flappyState.lastTime=ts;
-    flappyState.vel+=flappyState.gravity*dt*60; // ajuste
-    flappyState.y+=flappyState.vel*dt*60;
-    const heroEl=document.getElementById('flappy-hero');
-    heroEl.style.top=flappyState.y+'%';
-    heroEl.style.transform=`translateY(-50%) rotate(${Math.min(Math.max(flappyState.vel*3,-30),90)}deg)`;
-    if(flappyState.y<0||flappyState.y>100) return overFlappy();
-    if(flappyState.pipes.length===0||flappyState.pipes[flappyState.pipes.length-1].x<55) {
-        let gapY=Math.random()*30+30, gapSize=25;
-        let pipeTop=document.createElement('div'); pipeTop.className='flappy-pipe top'; pipeTop.style.height=(gapY-gapSize/2)+'%';
-        let pipeBottom=document.createElement('div'); pipeBottom.className='flappy-pipe bottom'; pipeBottom.style.height=(100-(gapY+gapSize/2))+'%';
-        document.getElementById('flappy-container').appendChild(pipeTop);
-        document.getElementById('flappy-container').appendChild(pipeBottom);
-        flappyState.pipes.push({x:100,top:pipeTop,bottom:pipeBottom,passed:false});
-    }
-    flappyState.pipes.forEach((p,i)=>{
-        p.x-=1.2*dt*60; // mais lento
-        p.top.style.left=p.x+'%'; p.bottom.style.left=p.x+'%';
-        let heroTop = flappyState.y - 5;
-        let heroBottom = flappyState.y + 5;
-        let gapTop = parseFloat(p.top.style.height);
-        let gapBottom = 100 - parseFloat(p.bottom.style.height);
-        if(p.x>10&&p.x<25) {
-            if(heroTop < gapTop || heroBottom > gapBottom) overFlappy();
-        }
-        if(p.x<20&&!p.passed){p.passed=true;flappyState.score++;document.getElementById('flappy-score').textContent=flappyState.score;AudioSys.coin();}
-        if(p.x<-20){p.top.remove();p.bottom.remove();flappyState.pipes.splice(i,1);}
-    });
-    flappyAnimFrame=requestAnimationFrame(runFlappy);
-}
-function overFlappy() {
-    flappyState.active=false; AudioSys.crash(); screenShake(); cancelAnimationFrame(flappyAnimFrame);
-    const coins=flappyState.score*2;
-    GameData.addCoins(coins); GameData.addXP(flappyState.score);
-    GameData.setRecord('flappy',flappyState.score);
-    updateMissionProgress('flappy1',1); updateMissionProgress('coins30',coins);
-    document.getElementById('final-score').textContent='✈️ '+flappyState.score;
-    document.getElementById('final-coins-earned').textContent='+'+coins+' 🪙';
-    document.getElementById('gameover-emoji').textContent='✈️';
-    document.getElementById('btn-play-again').onclick=initFlappy;
-    showScreen('screen-race-over');
-}
-function quitFlappy(){flappyState.active=false;cancelAnimationFrame(flappyAnimFrame);showScreen('screen-menu');}
-document.getElementById('screen-flappy').addEventListener('touchstart',flap,{passive:true});
-document.getElementById('screen-flappy').addEventListener('mousedown',flap);
-
-// ========== BLOCOS (QUEBRA-CABEÇA 8x8) ==========
-let blocksInterval, puzzleBoard, puzzlePieces, selectedPiece = null;
-const PUZZLE_ROWS=8, PUZZLE_COLS=8;
-const PIECE_SHAPES = [
-    [[1,1],[1,1]], // 2x2
-    [[1,1,1]], // 1x3
-    [[1],[1],[1]], // 3x1
-    [[0,1],[1,1]], // L
-    [[1,0],[1,1]], // L invertido
-];
-const PIECE_COLORS = ['#FF595E','#FFCA3A','#8AC926','#1982C4','#6A4C93','#FF924C'];
-function initBlocksPuzzle() {
-    const screen = document.getElementById('screen-blocks');
-    screen.innerHTML = `
-        <div class="score-bar"><span>🧱 BLOCOS</span><span>Pontos: <strong id="puzzle-score">0</strong></span>
-            <button class="btn btn-danger btn-small" onclick="quitBlocks()">Sair</button>
-        </div>
-        <div id="blocks-puzzle">
-            <div id="puzzle-board"></div>
-            <div id="puzzle-pieces"></div>
-        </div>
-    `;
-    puzzleBoard = Array.from({length:PUZZLE_ROWS}, ()=>Array(PUZZLE_COLS).fill(0));
-    renderPuzzleBoard();
-    generatePuzzlePieces();
-    showScreen('screen-blocks');
-}
-function renderPuzzleBoard() {
-    const boardDiv = document.getElementById('puzzle-board');
-    boardDiv.innerHTML = '';
-    for(let r=0;r<PUZZLE_ROWS;r++) {
-        for(let c=0;c<PUZZLE_COLS;c++) {
-            const cell = document.createElement('div');
-            cell.className = 'puzzle-cell';
-            if(puzzleBoard[r][c]) {
-                cell.style.background = puzzleBoard[r][c];
-                cell.style.boxShadow = 'inset 0 0 8px rgba(255,255,255,0.3)';
-            }
-            cell.onclick = () => placeSelectedPiece(r,c);
-            boardDiv.appendChild(cell);
-        }
-    }
-}
-function generatePuzzlePieces() {
-    const piecesDiv = document.getElementById('puzzle-pieces');
-    piecesDiv.innerHTML = '';
-    const numPieces = 3;
-    for(let i=0;i<numPieces;i++) {
-        const shape = PIECE_SHAPES[Math.floor(Math.random()*PIECE_SHAPES.length)];
-        const color = PIECE_COLORS[Math.floor(Math.random()*PIECE_COLORS.length)];
-        const pieceEl = document.createElement('div');
-        pieceEl.className = 'puzzle-piece';
-        pieceEl.style.background = color;
-        pieceEl.innerHTML = shape.map(row=>row.map(v=>v?'⬛':' ').join('')).join('<br>');
-        pieceEl.dataset.shape = JSON.stringify(shape);
-        pieceEl.dataset.color = color;
-        pieceEl.onclick = (e) => {
-            e.stopPropagation();
-            document.querySelectorAll('.puzzle-piece').forEach(p=>p.style.border='');
-            pieceEl.style.border = '3px solid white';
-            selectedPiece = {shape, color, el: pieceEl};
-            AudioSys.blockPlace();
-        };
-        piecesDiv.appendChild(pieceEl);
-    }
-}
-function placeSelectedPiece(r,c) {
-    if(!selectedPiece) return;
-    const {shape, color} = selectedPiece;
-    // Verifica se encaixa
-    let fits = true;
-    for(let i=0;i<shape.length;i++) {
-        for(let j=0;j<shape[i].length;j++) {
-            if(shape[i][j]) {
-                if(r+i>=PUZZLE_ROWS || c+j>=PUZZLE_COLS || puzzleBoard[r+i][c+j]) {
-                    fits = false;
-                }
-            }
-        }
-    }
-    if(!fits) { AudioSys.sequenceError(); return; }
-    // Coloca no tabuleiro
-    for(let i=0;i<shape.length;i++) {
-        for(let j=0;j<shape[i].length;j++) {
-            if(shape[i][j]) {
-                puzzleBoard[r+i][c+j] = color;
-            }
-        }
-    }
-    selectedPiece.el.remove();
-    selectedPiece = null;
-    document.querySelectorAll('.puzzle-piece').forEach(p=>p.style.border='');
-    AudioSys.blockPlace();
-    renderPuzzleBoard();
-    // Verifica linhas completas
-    let cleared = 0;
-    for(let r=PUZZLE_ROWS-1;r>=0;r--) {
-        if(puzzleBoard[r].every(cell=>cell)) {
-            puzzleBoard.splice(r,1);
-            puzzleBoard.unshift(Array(PUZZLE_COLS).fill(0));
-            cleared++;
-            r++;
-        }
-    }
-    if(cleared) {
-        AudioSys.blockClear();
-        let pts = parseInt(document.getElementById('puzzle-score').textContent) + cleared*10;
-        document.getElementById('puzzle-score').textContent = pts;
-        GameData.addCoins(cleared*2);
-        renderPuzzleBoard();
-    }
-    if(document.getElementById('puzzle-pieces').children.length===0) {
-        // Todos encaixados, nova leva
-        generatePuzzlePieces();
-        let pts = parseInt(document.getElementById('puzzle-score').textContent) + 20;
-        document.getElementById('puzzle-score').textContent = pts;
-        AudioSys.win();
-        GameData.addXP(10);
-        updateMissionProgress('blocks1',1);
-    }
-}
-function quitBlocks() { showScreen('screen-menu'); }
-
-// ========== MEMÓRIA ==========
-let memoryTimer, memorySeconds, memoryPairs;
-function initMemory(){
-    const emojis=['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼'];
-    const cards=[...emojis,...emojis].sort(()=>Math.random()-0.5);
-    const grid=document.getElementById('memory-grid'); grid.innerHTML='';
-    memorySeconds=0; memoryPairs=0;
-    document.getElementById('memory-time').textContent='0s';
-    clearInterval(memoryTimer);
-    memoryTimer=setInterval(()=>{memorySeconds++;document.getElementById('memory-time').textContent=memorySeconds+'s';},1000);
-    let flipped=[];
-    cards.forEach(emoji=>{
-        const card=document.createElement('div'); card.className='memory-card'; card.innerHTML=`<span>${emoji}</span>`;
-        card.onclick=()=>{
-            if(flipped.length<2&&!card.classList.contains('flipped')&&!card.classList.contains('matched')){
-                card.classList.add('flipped'); AudioSys.playTone(300,'sine',0.1);
-                flipped.push({emoji,el:card});
-                if(flipped.length===2){
-                    if(flipped[0].emoji===flipped[1].emoji){
-                        AudioSys.coin();
-                        setTimeout(()=>{flipped[0].el.classList.add('matched');flipped[1].el.classList.add('matched');flipped=[];
-                            memoryPairs++;
-                            if(memoryPairs===emojis.length){
-                                clearInterval(memoryTimer); AudioSys.win();
-                                const coinsEarned=Math.max(10,50-memorySeconds);
-                                GameData.addCoins(coinsEarned); GameData.addXP(15);
-                                GameData.setRecord('memory',memorySeconds);
-                                updateMissionProgress('memory1',1); updateMissionProgress('coins30',coinsEarned);
-                                setTimeout(()=>{alert(`Parabéns! ${memorySeconds}s - +${coinsEarned} 🪙`);showScreen('screen-menu');},500);
-                            }
-                        },500);
-                    } else setTimeout(()=>{flipped.forEach(f=>f.el.classList.remove('flipped'));flipped=[];},1000);
-                }
-            }
-        };
-        grid.appendChild(card);
-    });
-    showScreen('screen-memory');
-}
-
-// ========== PIANO ==========
-function initPiano(){showScreen('screen-piano');}
-document.querySelectorAll('.piano-key').forEach(key=>{
-    const play=(e)=>{if(e.cancelable)e.preventDefault();AudioSys.playTone(parseFloat(key.dataset.note),'sine',0.4);key.classList.add('active');};
-    const stop=()=>key.classList.remove('active');
-    key.addEventListener('touchstart',play);key.addEventListener('touchend',stop);
-    key.addEventListener('mousedown',play);key.addEventListener('mouseup',stop);key.addEventListener('mouseleave',stop);
-});
-
-// ========== 🎈 BALÕES ==========
-let balloonsInterval, balloonsScore=0, balloonsLives=5;
-function initBalloons(){
-    const container = document.getElementById('balloons-container');
-    container.innerHTML = '';
-    balloonsScore=0; balloonsLives=5;
-    document.getElementById('balloons-score').textContent='0';
-    document.getElementById('balloons-lives').textContent='5';
-    showScreen('screen-balloons');
-    clearInterval(balloonsInterval);
-    balloonsInterval = setInterval(() => {
-        if(balloonsLives<=0) { clearInterval(balloonsInterval); endBalloons(); return; }
-        const balloon = document.createElement('div');
-        balloon.className = 'balloon';
-        const emojis = ['🎈','🎈','🎈','🎁','💣'];
-        const value = emojis.length===5 ? [1,1,1,3,-1] : [1,-1];
-        const idx = Math.floor(Math.random()*emojis.length);
-        balloon.textContent = emojis[idx];
-        balloon.dataset.value = value[idx];
-        balloon.style.left = Math.random()*70 + 5 + '%';
-        balloon.style.bottom = '-10%';
-        balloon.onclick = () => {
-            const v = parseInt(balloon.dataset.value);
-            if(v>0) {
-                balloonsScore += v;
-                AudioSys.pop();
-                spawnParticles('💥',3);
-            } else {
-                balloonsLives--;
-                document.getElementById('balloons-lives').textContent = balloonsLives;
-                AudioSys.crash();
-            }
-            balloon.remove();
-            document.getElementById('balloons-score').textContent = balloonsScore;
-        };
-        container.appendChild(balloon);
-        let pos = -10;
-        const anim = setInterval(() => {
-            pos += 0.8;
-            balloon.style.bottom = pos + '%';
-            if(pos > 100) {
-                clearInterval(anim);
-                if(balloon.dataset.value > 0) {
-                    balloonsLives--;
-                    document.getElementById('balloons-lives').textContent = balloonsLives;
-                }
-                balloon.remove();
-                if(balloonsLives<=0) { clearInterval(balloonsInterval); endBalloons(); }
-            }
-        }, 30);
-    }, 1000);
-}
-function endBalloons(){
-    document.querySelectorAll('.balloon').forEach(b=>b.remove());
-    GameData.addCoins(balloonsScore);
-    GameData.addXP(balloonsScore);
-    GameData.setRecord('balloons', balloonsScore);
-    updateMissionProgress('balloons1', balloonsScore);
-    document.getElementById('final-score').textContent='🎈 '+balloonsScore;
-    document.getElementById('final-coins-earned').textContent='+'+balloonsScore+' 🪙';
-    document.getElementById('gameover-emoji').textContent='🎈';
-    document.getElementById('btn-play-again').onclick=initBalloons;
-    showScreen('screen-race-over');
-}
-function quitBalloons(){clearInterval(balloonsInterval);showScreen('screen-menu');}
-
-// ========== ❌ JOGO DA VELHA ==========
-let tttBoard, tttTurn, tttGameOver, tttDifficulty = 'facil';
-function initTicTacToe(){
-    tttBoard = Array(9).fill(null); tttTurn = 'X'; tttGameOver = false;
-    document.getElementById('ttt-status').textContent = 'Sua vez! (X)';
-    document.querySelectorAll('.ttt-cell').forEach(cell=>{
-        cell.textContent=''; cell.className='ttt-cell';
-        cell.onclick = ()=>tttPlayerMove(parseInt(cell.dataset.i));
-    });
-    showScreen('screen-tictactoe');
-    renderTTTDifficulty();
-}
-function renderTTTDifficulty() {
-    const div = document.createElement('div');
-    div.className = 'ttt-difficulty';
-    div.innerHTML = `
-        <button class="btn btn-small ${tttDifficulty==='facil'?'btn-primary':''}" onclick="tttSetDifficulty('facil')">Fácil</button>
-        <button class="btn btn-small ${tttDifficulty==='medio'?'btn-primary':''}" onclick="tttSetDifficulty('medio')">Médio</button>
-    `;
-    const old = document.querySelector('.ttt-difficulty');
-    if(old) old.replaceWith(div);
-    else document.getElementById('ttt-board').before(div);
-}
-function tttSetDifficulty(level) { tttDifficulty=level; resetTicTacToe(); }
-function tttPlayerMove(i) {
-    if(tttGameOver||tttBoard[i]||tttTurn!=='X') return;
-    tttBoard[i]='X';
-    document.querySelector(`.ttt-cell[data-i="${i}"]`).textContent='X';
-    document.querySelector(`.ttt-cell[data-i="${i}"]`).classList.add('x');
-    AudioSys.tttPlace();
-    if(checkTTTWin('X')){tttGameOver=true;AudioSys.tttWin();document.getElementById('ttt-status').textContent='Você venceu! 🎉';
-        GameData.addCoins(30);GameData.addXP(10);updateMissionProgress('tictactoe1',1);}
-    else if(tttBoard.every(c=>c)){tttGameOver=true;document.getElementById('ttt-status').textContent='Empate!';}
-    else {tttTurn='O';document.getElementById('ttt-status').textContent='Computador...';setTimeout(computerTTT,400);}
-}
-function computerTTT() {
-    if(tttGameOver) return;
-    let move;
-    if(tttDifficulty==='facil') {
-        const empty = tttBoard.map((v,i)=>v===null?i:null).filter(v=>v!==null);
-        move = empty[Math.floor(Math.random()*empty.length)];
-    } else {
-        // Médio: tenta vencer ou bloquear
-        move = tttFindBestMove();
-    }
-    tttBoard[move]='O';
-    const cell = document.querySelector(`.ttt-cell[data-i="${move}"]`);
-    cell.textContent='O'; cell.classList.add('o');
-    AudioSys.tttPlace();
-    if(checkTTTWin('O')){tttGameOver=true;AudioSys.crash();document.getElementById('ttt-status').textContent='Computador venceu! 😢';}
-    else if(tttBoard.every(c=>c)){tttGameOver=true;document.getElementById('ttt-status').textContent='Empate!';}
-    else {tttTurn='X';document.getElementById('ttt-status').textContent='Sua vez! (X)';}
-}
-function tttFindBestMove() {
-    const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-    for(let w of wins) {
-        const vals = w.map(i=>tttBoard[i]);
-        if(vals.filter(v=>v==='O').length===2 && vals.includes(null)) return w[vals.indexOf(null)];
-    }
-    for(let w of wins) {
-        const vals = w.map(i=>tttBoard[i]);
-        if(vals.filter(v=>v==='X').length===2 && vals.includes(null)) return w[vals.indexOf(null)];
-    }
-    const empty = tttBoard.map((v,i)=>v===null?i:null).filter(v=>v!==null);
-    return empty[Math.floor(Math.random()*empty.length)];
-}
-function checkTTTWin(p){
-    const wins=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-    return wins.some(w=>w.every(i=>tttBoard[i]===p));
-}
-function resetTicTacToe(){initTicTacToe();}
-
-// ========== 🌈 SEQUÊNCIA DE CORES ==========
-let seqSequence=[], seqPlayerIndex=0, seqLevel=1, seqShowing=false, seqTimeout;
-const seqNotes = [523,659,784,1047];
-function initSequence(){
-    seqSequence=[]; seqPlayerIndex=0; seqLevel=1; seqShowing=false;
-    document.getElementById('seq-level').textContent='1';
-    document.getElementById('seq-status').textContent='Observe a sequência...';
-    showScreen('screen-sequence');
-    setTimeout(nextSequenceRound,800);
-}
-function resetSequence(){initSequence();}
-function nextSequenceRound(){
-    seqPlayerIndex=0; seqShowing=true;
-    document.getElementById('seq-status').textContent='Observe...';
-    const next = Math.floor(Math.random()*4);
-    seqSequence.push(next);
-    playSequence(0);
-}
-function playSequence(i){
-    if(i>=seqSequence.length){seqShowing=false;document.getElementById('seq-status').textContent='Sua vez!';return;}
-    const btn = document.querySelector(`.seq-btn[data-color="${seqSequence[i]}"]`);
-    btn.classList.add('bright');
-    AudioSys.sequenceNote(seqNotes[seqSequence[i]]);
-    setTimeout(()=>btn.classList.remove('bright'),400);
-    seqTimeout = setTimeout(()=>playSequence(i+1),700);
-}
-document.querySelectorAll('.seq-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-        if(seqShowing) return;
-        const color = parseInt(btn.dataset.color);
-        btn.classList.add('bright');
-        AudioSys.sequenceNote(seqNotes[color]);
-        setTimeout(()=>btn.classList.remove('bright'),200);
-        if(seqSequence[seqPlayerIndex]!==color){
-            AudioSys.sequenceError();
-            document.getElementById('seq-status').textContent='Errou! Fim de jogo.';
-            const coins = Math.floor(seqLevel*2);
-            GameData.addCoins(coins); GameData.addXP(seqLevel);
-            GameData.setRecord('sequence',seqLevel);
-            updateMissionProgress('sequence1',seqLevel);
-            updateMissionProgress('coins30',coins);
-            seqShowing=true;
-            setTimeout(()=>showScreen('screen-menu'),2000);
-            return;
-        }
-        seqPlayerIndex++;
-        if(seqPlayerIndex>=seqSequence.length){
-            seqLevel++;
-            document.getElementById('seq-level').textContent=seqLevel;
-            document.getElementById('seq-status').textContent='Acertou! Próxima...';
-            setTimeout(nextSequenceRound,1000);
-        }
-    });
-});
-
-// ========== MODAL ==========
-let quitAction=null;
-function quitGame(){raceState.active=false;showModal("Parar a Corrida?","Quer desistir agora?",()=>showScreen('screen-menu'));}
-function showModal(title,text,action){
-    document.getElementById('modal-title').textContent=title;
-    document.getElementById('modal-text').textContent=text;
-    document.getElementById('modal-overlay').style.display='flex';
-    quitAction=action;
-}
-function closeModal(){
-    document.getElementById('modal-overlay').style.display='none';
-}
-function confirmQuit(){document.getElementById('modal-overlay').style.display='none';if(quitAction)quitAction();}
-
-// ========== TECLADO ==========
-window.addEventListener('keydown',e=>{
-    if(flappyState.active && e.key===' ') flap();
-    if(document.getElementById('screen-blocks').classList.contains('active') && selectedPiece) {
-        // navegação básica
-    }
-});
-
-// ========== INICIALIZAÇÃO ==========
-window.addEventListener('DOMContentLoaded',()=>{
+  init() {
+    if (this.frameId) cancelAnimationFrame(this.frameId);
+    if (this.obstacleEl) { this.obstacleEl.remove(); this.obstacleEl = null; }
     const hero = GameData.get().currentHero;
-    const raceHero = document.getElementById('race-hero');
-    const flappyHero = document.getElementById('flappy-hero');
-    if(raceHero) raceHero.textContent = hero;
-    if(flappyHero) flappyHero.textContent = hero;
-    checkDailyLogin();
-    updatePlayerStats();
-    updateBestScores();
-    renderMissions();
+    const screen = $('screen-race');
+    screen.innerHTML = `
+      <div id="runner-container">
+        <div id="runner-sky">
+          <div class="cloud c1">☁️</div>
+          <div class="cloud c2">☁️</div>
+          <div class="cloud c3">⛅</div>
+        </div>
+        <div id="runner-ground"></div>
+        <div id="runner-hero">${hero}</div>
+        <div id="runner-score-display">⭐ 0</div>
+        <div id="runner-speed-bar"><div id="runner-speed-fill"></div></div>
+        <div id="runner-tap-hint">👆 Toque para pular!</div>
+      </div>
+    `;
+    this.state = { active:true, score:0, jumping:false, sliding:false, speed:2.8 };
+    this.obstacleEl = null;
+    this.obstacleX = 110;
+    $('runner-tap-hint').style.transition = 'opacity 0.5s';
+    setTimeout(() => { const h=$('runner-tap-hint'); if(h) h.style.opacity='0'; }, 1800);
+    setTimeout(() => { const h=$('runner-tap-hint'); if(h) h.remove(); }, 2400);
+
+    const container = $('runner-container');
+    container.addEventListener('click',    () => this._jump(),  { passive:true });
+    container.addEventListener('touchstart', e => { this._jump(); }, { passive:true });
+    let touchY = 0;
+    container.addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive:true });
+    container.addEventListener('touchmove',  e => {
+      if (!this.state.active || this.state.sliding || this.state.jumping) return;
+      if (e.touches[0].clientY - touchY > 28) this._slide();
+    }, { passive:true });
+
+    _activeCleanup = () => { this.state.active = false; cancelAnimationFrame(this.frameId); };
+    showScreen('screen-race');
+    this.frameId = requestAnimationFrame(() => this._loop());
+  },
+
+  _jump() {
+    if (!this.state.active || this.state.jumping) return;
+    this.state.jumping = true;
+    const hero = $('runner-hero');
+    if (hero) hero.classList.add('jumping');
+    AudioSys.jump();
+    setTimeout(() => {
+      const h = $('runner-hero'); if (h) h.classList.remove('jumping');
+      this.state.jumping = false;
+    }, 530);
+  },
+
+  _slide() {
+    this.state.sliding = true;
+    const hero = $('runner-hero'); if (hero) hero.classList.add('sliding');
+    AudioSys.flap();
+    setTimeout(() => {
+      const h = $('runner-hero'); if (h) h.classList.remove('sliding');
+      this.state.sliding = false;
+    }, 420);
+  },
+
+  _loop() {
+    if (!this.state.active) return;
+    // Spawn obstáculo
+    if (!this.obstacleEl) {
+      const types = [
+        { e:'🪨', kind:'low' },  // ajoelhar
+        { e:'📦', kind:'high' }, // pular
+        { e:'🌵', kind:'low' },  // ajoelhar
+        { e:'🌟', kind:'high' }  // pular
+      ];
+      const t = types[Math.floor(Math.random() * types.length)];
+      const obs = document.createElement('div');
+      obs.className = 'runner-obstacle';
+      obs.textContent = t.e;
+      obs.dataset.kind = t.kind;
+      $('runner-container')?.appendChild(obs);
+      this.obstacleEl = obs;
+      this.obstacleX = 108;
+    }
+
+    // Move obstáculo — velocidade cresce com pontuação
+    this.state.speed = Math.min(2.8 + this.state.score / 60, 6.0);
+    this.obstacleX -= this.state.speed * 0.38;
+    this.obstacleEl.style.left = this.obstacleX + '%';
+
+    // Atualiza barra de velocidade
+    const fill = $('runner-speed-fill');
+    if (fill) fill.style.width = Math.min(((this.state.speed - 2.8) / 3.2) * 100, 100) + '%';
+
+    // Colisão: herói está entre 18-28%
+    if (this.obstacleX < 27 && this.obstacleX > 12) {
+      const kind = this.obstacleEl.dataset.kind;
+      const avoided = kind === 'high' ? this.state.jumping : this.state.sliding;
+      if (!avoided) { this._crash(); return; }
+    }
+
+    // Ponto marcado
+    if (this.obstacleX < 10 && !this.obstacleEl.dataset.scored) {
+      this.obstacleEl.dataset.scored = '1';
+      this.state.score += 10;
+      const disp = $('runner-score-display');
+      if (disp) disp.textContent = '⭐ ' + this.state.score;
+      AudioSys.coin();
+    }
+    if (this.obstacleX < -14) { this.obstacleEl.remove(); this.obstacleEl = null; }
+
+    this.frameId = requestAnimationFrame(() => this._loop());
+  },
+
+  _crash() {
+    this.state.active = false;
+    cancelAnimationFrame(this.frameId);
+    if (this.obstacleEl) { this.obstacleEl.remove(); this.obstacleEl = null; }
+    AudioSys.crash(); screenShake();
+    const coins = Math.floor(this.state.score / 2);
+    GameData.addCoins(coins);
+    GameData.addXP(Math.floor(this.state.score / 3));
+    const isNew = GameData.setRecord('race', this.state.score);
+    updateMissionProgress('race1', 1);
+    updateMissionProgress('race3', 1);
+    updateMissionProgress('coins30', coins);
+    showGameOver({
+      score: this.state.score, coinsEarned: coins,
+      emoji: '🏃', record: GameData.get().records.race,
+      isNewRecord: isNew, playAgainFn: () => Race.init()
+    });
+  }
+};
+function initRace() { Race.init(); }
+function quitGame() {
+  showModal('Parar a Corrida?', 'Quer desistir agora?', () => showScreen('screen-menu'));
+}
+
+// ===================== FLAPPY =====================
+const Flappy = {
+  state:   null,
+  frameId: null,
+
+  init() {
+    if (this.frameId) cancelAnimationFrame(this.frameId);
+    document.querySelectorAll('.flappy-pipe').forEach(p => p.remove());
+    this.state = {
+      active: true, y: 50, vel: 0,
+      gravity: 0.33, jump: -6.2,
+      score: 0, pipes: [], lastTime: performance.now()
+    };
+    const hero = $('flappy-hero');
+    if (hero) { hero.style.top = '50%'; hero.textContent = GameData.get().currentHero; }
+    $('flappy-score').textContent = '0';
+    _activeCleanup = () => { this.state.active = false; cancelAnimationFrame(this.frameId); };
+    showScreen('screen-flappy');
+    this.frameId = requestAnimationFrame(ts => this._loop(ts));
+  },
+
+  flap() {
+    if (!this.state?.active) return;
+    this.state.vel = this.state.jump;
+    AudioSys.flap();
+    const hero = $('flappy-hero');
+    if (hero) { hero.style.transform = 'translateY(-50%) rotate(-25deg)'; }
+  },
+
+  _loop(ts) {
+    if (!this.state.active) return;
+    const dt = Math.min((ts - this.state.lastTime) / 1000, 0.05);
+    this.state.lastTime = ts;
+    this.state.vel += this.state.gravity * dt * 60;
+    this.state.y  += this.state.vel * dt * 60;
+
+    const hero = $('flappy-hero');
+    if (hero) {
+      hero.style.top = this.state.y + '%';
+      hero.style.transform = `translateY(-50%) rotate(${Math.min(Math.max(this.state.vel * 3, -28), 80)}deg)`;
+    }
+    if (this.state.y < 2 || this.state.y > 97) { this._over(); return; }
+
+    // Spawn pipes
+    const last = this.state.pipes[this.state.pipes.length - 1];
+    if (!last || last.x < 52) {
+      const gapY = Math.random() * 26 + 33;
+      const half = 14;
+      const container = $('flappy-container');
+      const pTop = document.createElement('div');
+      pTop.className = 'flappy-pipe top';
+      pTop.style.height = (gapY - half) + '%';
+      const pBot = document.createElement('div');
+      pBot.className = 'flappy-pipe bottom';
+      pBot.style.height = (100 - (gapY + half)) + '%';
+      container.appendChild(pTop); container.appendChild(pBot);
+      this.state.pipes.push({ x:100, top:pTop, bottom:pBot, gapTop:gapY-half, gapBot:gapY+half, passed:false });
+    }
+
+    for (let i = this.state.pipes.length - 1; i >= 0; i--) {
+      const p = this.state.pipes[i];
+      p.x -= 1.05 * dt * 60;
+      p.top.style.left = p.x + '%';
+      p.bottom.style.left = p.x + '%';
+      // Colisão — herói ~20% horizontal
+      if (p.x > 13 && p.x < 27) {
+        if (this.state.y < p.gapTop || this.state.y > p.gapBot) { this._over(); return; }
+      }
+      if (p.x < 16 && !p.passed) {
+        p.passed = true;
+        this.state.score++;
+        $('flappy-score').textContent = this.state.score;
+        AudioSys.coin();
+      }
+      if (p.x < -16) {
+        p.top.remove(); p.bottom.remove();
+        this.state.pipes.splice(i, 1);
+      }
+    }
+    this.frameId = requestAnimationFrame(ts => this._loop(ts));
+  },
+
+  _over() {
+    if (!this.state.active) return;
+    this.state.active = false;
+    cancelAnimationFrame(this.frameId);
+    AudioSys.crash(); screenShake();
+    const coins = this.state.score * 2;
+    GameData.addCoins(coins); GameData.addXP(this.state.score);
+    const isNew = GameData.setRecord('flappy', this.state.score);
+    updateMissionProgress('flappy1', 1); updateMissionProgress('coins30', coins);
+    showGameOver({
+      score: this.state.score, coinsEarned: coins,
+      emoji: '✈️', record: GameData.get().records.flappy,
+      isNewRecord: isNew, playAgainFn: () => Flappy.init()
+    });
+  }
+};
+function initFlappy() { Flappy.init(); }
+function quitFlappy() {
+  if (Flappy.state) Flappy.state.active = false;
+  cancelAnimationFrame(Flappy.frameId);
+  showScreen('screen-menu');
+}
+
+// ===================== BLOCOS =====================
+const Blocks = {
+  board: null,
+  selected: null,
+  score: 0,
+  SHAPES: [
+    [[1,1],[1,1]], [[1,1,1]], [[1],[1],[1]],
+    [[0,1],[1,1]], [[1,0],[1,1]], [[1,1,0],[0,1,1]], [[1,0],[1,0],[1,1]]
+  ],
+  COLORS: ['#FF595E','#FFCA3A','#8AC926','#1982C4','#6A4C93','#FF924C','#06D6A0','#EF476F'],
+
+  init() {
+    this.score = 0; this.selected = null;
+    const screen = $('screen-blocks');
+    screen.innerHTML = `
+      <div class="score-bar">
+        <span>🧱 BLOCOS</span>
+        <span>Pontos: <strong id="puzzle-score">0</strong></span>
+        <button class="btn btn-danger btn-small" onclick="Blocks.quit()">Sair</button>
+      </div>
+      <div id="blocks-puzzle">
+        <div id="puzzle-board"></div>
+        <div id="puzzle-pieces"></div>
+      </div>
+    `;
+    this.board = Array.from({ length:8 }, () => Array(8).fill(0));
+    this._renderBoard();
+    this._genPieces();
+    _activeCleanup = null;
+    showScreen('screen-blocks');
+  },
+
+  _renderBoard() {
+    const div = $('puzzle-board');
+    if (!div) return;
+    div.innerHTML = '';
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'puzzle-cell' + (this.board[r][c] ? ' filled' : '');
+        if (this.board[r][c]) cell.style.background = this.board[r][c];
+        cell.onclick = () => this._place(r, c);
+        div.appendChild(cell);
+      }
+    }
+  },
+
+  _genPieces() {
+    const div = $('puzzle-pieces');
+    if (!div) return;
+    div.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+      const shape = this.SHAPES[Math.floor(Math.random() * this.SHAPES.length)];
+      const color = this.COLORS[Math.floor(Math.random() * this.COLORS.length)];
+      const wrap = document.createElement('div');
+      wrap.className = 'puzzle-piece-wrap';
+      const grid = document.createElement('div');
+      grid.className = 'piece-grid';
+      grid.style.gridTemplateColumns = `repeat(${shape[0].length}, 1fr)`;
+      shape.forEach(row => row.forEach(v => {
+        const c = document.createElement('div');
+        c.className = 'piece-cell' + (v ? ' on' : '');
+        if (v) c.style.background = color;
+        grid.appendChild(c);
+      }));
+      wrap.appendChild(grid);
+      wrap.dataset.shape = JSON.stringify(shape);
+      wrap.dataset.color = color;
+      wrap.onclick = e => {
+        e.stopPropagation();
+        document.querySelectorAll('.puzzle-piece-wrap').forEach(p => p.classList.remove('selected'));
+        wrap.classList.add('selected');
+        this.selected = { shape, color, el: wrap };
+        AudioSys.tap();
+      };
+      div.appendChild(wrap);
+    }
+  },
+
+  _place(r, c) {
+    if (!this.selected) return;
+    const { shape, color } = this.selected;
+    let fits = true;
+    for (let i = 0; i < shape.length && fits; i++)
+      for (let j = 0; j < shape[i].length && fits; j++)
+        if (shape[i][j] && (r+i >= 8 || c+j >= 8 || this.board[r+i][c+j])) fits = false;
+    if (!fits) { AudioSys.seqError(); return; }
+    for (let i = 0; i < shape.length; i++)
+      for (let j = 0; j < shape[i].length; j++)
+        if (shape[i][j]) this.board[r+i][c+j] = color;
+    this.selected.el.remove();
+    this.selected = null;
+    AudioSys.blockPlace();
+    this._renderBoard();
+    let cleared = 0;
+    for (let row = 7; row >= 0; row--) {
+      if (this.board[row].every(v => v)) {
+        this.board.splice(row, 1);
+        this.board.unshift(Array(8).fill(0));
+        cleared++; row++;
+      }
+    }
+    if (cleared) {
+      AudioSys.blockClear();
+      this.score += cleared * 10;
+      $('puzzle-score').textContent = this.score;
+      GameData.addCoins(cleared * 2);
+      spawnParticles('💥', 5);
+      this._renderBoard();
+    }
+    if ($('puzzle-pieces').children.length === 0) {
+      this._genPieces();
+      this.score += 20; $('puzzle-score').textContent = this.score;
+      AudioSys.win(); GameData.addXP(10);
+      updateMissionProgress('blocks1', 1);
+      spawnParticles('🎉', 8);
+    }
+  },
+
+  quit() { showScreen('screen-menu'); }
+};
+function initBlocks() { Blocks.init(); }
+function quitBlocks() { Blocks.quit(); }
+
+// ===================== MEMÓRIA =====================
+const Memory = {
+  timer: null, seconds: 0, pairs: 0, flipped: [], locked: false,
+
+  init() {
+    clearInterval(this.timer);
+    this.seconds = 0; this.pairs = 0; this.flipped = []; this.locked = false;
+    const emojis = ['🐶','🐱','🦊','🐻','🦁','🐸','🦋','🌈'];
+    const cards = shuffle([...emojis, ...emojis]);
+    const grid = $('memory-grid');
+    grid.innerHTML = '';
+    $('memory-time').textContent = '0s';
+    this.timer = setInterval(() => {
+      this.seconds++;
+      $('memory-time').textContent = this.seconds + 's';
+    }, 1000);
+    cards.forEach(emoji => {
+      const card = document.createElement('div');
+      card.className = 'memory-card';
+      card.dataset.emoji = emoji;
+      card.innerHTML = `<span class="card-face front">❓</span><span class="card-face back">${emoji}</span>`;
+      card.onclick = () => this._flip(card, emoji);
+      grid.appendChild(card);
+    });
+    _activeCleanup = () => clearInterval(this.timer);
+    showScreen('screen-memory');
+  },
+
+  _flip(card, emoji) {
+    if (this.locked || this.flipped.length >= 2) return;
+    if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    card.classList.add('flipped');
+    AudioSys.tap();
+    this.flipped.push({ emoji, el: card });
+    if (this.flipped.length === 2) {
+      this.locked = true;
+      if (this.flipped[0].emoji === this.flipped[1].emoji) {
+        AudioSys.coin();
+        setTimeout(() => {
+          this.flipped.forEach(f => f.el.classList.add('matched'));
+          this.flipped = []; this.locked = false;
+          this.pairs++;
+          if (this.pairs === 8) this._complete();
+        }, 380);
+      } else {
+        setTimeout(() => {
+          this.flipped.forEach(f => f.el.classList.remove('flipped'));
+          this.flipped = []; this.locked = false;
+        }, 850);
+      }
+    }
+  },
+
+  _complete() {
+    clearInterval(this.timer);
+    AudioSys.win();
+    spawnParticles('⭐', 16); spawnParticles('🎉', 10);
+    const coins = Math.max(10, 60 - this.seconds);
+    GameData.addCoins(coins); GameData.addXP(15);
+    const isNew = GameData.setRecord('memory', this.seconds);
+    updateMissionProgress('memory1', 1); updateMissionProgress('coins30', coins);
+    const rec = GameData.get().records.memory;
+    setTimeout(() => showGameOver({
+      score: this.seconds + 's', coinsEarned: coins,
+      emoji: '🧠', record: rec === 999 ? '--' : rec + 's',
+      isNewRecord: isNew, playAgainFn: () => Memory.init()
+    }), 800);
+  }
+};
+function initMemory() { Memory.init(); }
+
+// ===================== PIANO =====================
+function initPiano() { showScreen('screen-piano'); }
+
+// ===================== BALÕES =====================
+const Balloons = {
+  interval: null, score: 0, lives: 5,
+
+  init() {
+    clearInterval(this.interval);
+    this.score = 0; this.lives = 5;
+    const container = $('balloons-container');
+    container.innerHTML = '';
+    $('balloons-score').textContent = '0';
+    $('balloons-lives').textContent = '5';
+    _activeCleanup = () => { clearInterval(this.interval); };
+    showScreen('screen-balloons');
+    this.interval = setInterval(() => {
+      if (this.lives <= 0) { clearInterval(this.interval); this._end(); return; }
+      this._spawn();
+    }, 950);
+  },
+
+  _spawn() {
+    const container = $('balloons-container');
+    if (!container) return;
+    const items = [
+      {e:'🎈',v:1},{e:'🎈',v:1},{e:'🎈',v:1},
+      {e:'🎁',v:3},{e:'💣',v:-1}
+    ];
+    const item = items[Math.floor(Math.random() * items.length)];
+    const b = document.createElement('div');
+    b.className = 'balloon';
+    b.textContent = item.e;
+    b.style.left = Math.random() * 70 + 5 + '%';
+    let posY = 108;
+    b.style.bottom = posY + '%';
+    b.onclick = () => {
+      clearInterval(anim); b.remove();
+      if (item.v > 0) {
+        this.score += item.v;
+        AudioSys.pop();
+        spawnParticles(item.v > 1 ? '🎁' : '💥', 4);
+        updateMissionProgress('balloons20', 1);
+      } else {
+        this.lives = Math.max(0, this.lives - 1);
+        $('balloons-lives').textContent = this.lives;
+        AudioSys.crash(); screenShake();
+      }
+      $('balloons-score').textContent = this.score;
+      if (this.lives <= 0) { clearInterval(this.interval); this._end(); }
+    };
+    container.appendChild(b);
+    const anim = setInterval(() => {
+      posY -= 0.65;
+      b.style.bottom = posY + '%';
+      if (posY < -15) {
+        clearInterval(anim);
+        if (item.v > 0 && b.parentNode) {
+          this.lives = Math.max(0, this.lives - 1);
+          $('balloons-lives').textContent = this.lives;
+          if (this.lives <= 0) { clearInterval(this.interval); this._end(); }
+        }
+        b.remove();
+      }
+    }, 30);
+  },
+
+  _end() {
+    document.querySelectorAll('.balloon').forEach(b => b.remove());
+    GameData.addXP(this.score);
+    const isNew = GameData.setRecord('balloons', this.score);
+    showGameOver({
+      score: this.score, coinsEarned: this.score,
+      emoji: '🎈', record: GameData.get().records.balloons,
+      isNewRecord: isNew, playAgainFn: () => Balloons.init()
+    });
+  }
+};
+function initBalloons() { Balloons.init(); }
+function quitBalloons() { clearInterval(Balloons.interval); showScreen('screen-menu'); }
+
+// ===================== JOGO DA VELHA =====================
+const TTT = {
+  board: Array(9).fill(null), turn:'X', over:false, difficulty:'facil',
+  WINS: [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]],
+
+  init() {
+    this.board = Array(9).fill(null); this.turn = 'X'; this.over = false;
+    $('ttt-status').textContent = 'Sua vez! ❌';
+    document.querySelectorAll('.ttt-cell').forEach(cell => {
+      cell.textContent = ''; cell.className = 'ttt-cell';
+      cell.onclick = () => this.move(parseInt(cell.dataset.i));
+    });
+    this._renderDiff();
+    _activeCleanup = null;
+    showScreen('screen-tictactoe');
+  },
+
+  _renderDiff() {
+    let div = document.querySelector('.ttt-difficulty');
+    if (!div) { div = document.createElement('div'); div.className = 'ttt-difficulty'; $('ttt-board').before(div); }
+    div.innerHTML = `
+      <button class="btn btn-small ${this.difficulty==='facil'?'btn-primary':''}" onclick="TTT.setDiff('facil')">😊 Fácil</button>
+      <button class="btn btn-small ${this.difficulty==='medio'?'btn-primary':''}" onclick="TTT.setDiff('medio')">🧠 Médio</button>`;
+  },
+
+  setDiff(d) { this.difficulty = d; this.init(); },
+
+  move(i) {
+    if (this.over || this.board[i] || this.turn !== 'X') return;
+    this._mark(i, 'X');
+    if (this._win('X')) {
+      this.over = true;
+      $('ttt-status').textContent = 'Você venceu! 🎉';
+      AudioSys.tttWin(); spawnParticles('🎉', 12);
+      GameData.addCoins(30); GameData.addXP(10);
+      updateMissionProgress('tictactoe1', 1);
+    } else if (this.board.every(c => c)) {
+      this.over = true; $('ttt-status').textContent = 'Empate! 🤝';
+    } else {
+      this.turn = 'O'; $('ttt-status').textContent = 'Computador... 🤔';
+      setTimeout(() => this._cpu(), 480);
+    }
+  },
+
+  _cpu() {
+    if (this.over) return;
+    const move = this.difficulty === 'facil'
+      ? (() => { const e=this.board.map((v,i)=>v===null?i:null).filter(v=>v!==null); return e[Math.floor(Math.random()*e.length)]; })()
+      : this._best();
+    this._mark(move, 'O');
+    if (this._win('O')) {
+      this.over = true; $('ttt-status').textContent = 'Computador venceu! 😅'; AudioSys.crash();
+    } else if (this.board.every(c => c)) {
+      this.over = true; $('ttt-status').textContent = 'Empate! 🤝';
+    } else {
+      this.turn = 'X'; $('ttt-status').textContent = 'Sua vez! ❌';
+    }
+  },
+
+  _mark(i, p) {
+    this.board[i] = p;
+    const cell = document.querySelector(`.ttt-cell[data-i="${i}"]`);
+    if (cell) { cell.textContent = p; cell.classList.add(p.toLowerCase()); }
+    AudioSys.tttPlace();
+  },
+
+  _best() {
+    for (const w of this.WINS) { const v=w.map(i=>this.board[i]); if(v.filter(x=>x==='O').length===2&&v.includes(null)) return w[v.indexOf(null)]; }
+    for (const w of this.WINS) { const v=w.map(i=>this.board[i]); if(v.filter(x=>x==='X').length===2&&v.includes(null)) return w[v.indexOf(null)]; }
+    if (!this.board[4]) return 4;
+    const e=this.board.map((v,i)=>v===null?i:null).filter(v=>v!==null);
+    return e[Math.floor(Math.random()*e.length)];
+  },
+
+  _win(p) { return this.WINS.some(w => w.every(i => this.board[i] === p)); }
+};
+function initTicTacToe() { TTT.init(); }
+function resetTicTacToe() { TTT.init(); }
+
+// ===================== SEQUÊNCIA =====================
+const Seq = {
+  seq:[], idx:0, level:1, showing:false, timeout:null,
+  NOTES:[523,659,784,1047],
+
+  init() {
+    clearTimeout(this.timeout);
+    this.seq=[]; this.idx=0; this.level=1; this.showing=false;
+    $('seq-level').textContent='1';
+    $('seq-status').textContent='Observe a sequência...';
+    _activeCleanup = () => clearTimeout(this.timeout);
+    showScreen('screen-sequence');
+    this.timeout = setTimeout(() => this._next(), 900);
+  },
+
+  _next() {
+    this.idx=0; this.showing=true;
+    $('seq-status').textContent='Observe... 👀';
+    this.seq.push(Math.floor(Math.random()*4));
+    this._play(0);
+  },
+
+  _play(i) {
+    if (i >= this.seq.length) { this.showing=false; $('seq-status').textContent='Sua vez! 👆'; return; }
+    const btn = document.querySelector(`.seq-btn[data-color="${this.seq[i]}"]`);
+    if (btn) btn.classList.add('bright');
+    AudioSys.seqNote(this.NOTES[this.seq[i]]);
+    setTimeout(() => { if(btn) btn.classList.remove('bright'); }, 400);
+    this.timeout = setTimeout(() => this._play(i+1), 720);
+  },
+
+  tap(color) {
+    if (this.showing) return;
+    const btn = document.querySelector(`.seq-btn[data-color="${color}"]`);
+    if (btn) { btn.classList.add('bright'); setTimeout(()=>btn.classList.remove('bright'),200); }
+    AudioSys.seqNote(this.NOTES[color]);
+    if (this.seq[this.idx] !== color) { this._fail(); return; }
+    this.idx++;
+    if (this.idx >= this.seq.length) {
+      this.level++;
+      $('seq-level').textContent = this.level;
+      $('seq-status').textContent = '✅ Incrível!';
+      spawnParticles('⭐', 4); AudioSys.win();
+      this.timeout = setTimeout(() => this._next(), 1000);
+    }
+  },
+
+  _fail() {
+    AudioSys.seqError(); screenShake();
+    $('seq-status').textContent='Errou! 😅';
+    this.showing=true;
+    const coins = Math.floor(this.level*2);
+    GameData.addCoins(coins); GameData.addXP(this.level);
+    const isNew = GameData.setRecord('sequence', this.level);
+    updateMissionProgress('sequence3', this.level);
+    updateMissionProgress('coins30', coins);
+    setTimeout(() => showGameOver({
+      score: this.level-1, coinsEarned: coins,
+      emoji:'🌈', record: GameData.get().records.sequence,
+      isNewRecord: isNew, playAgainFn: () => Seq.init()
+    }), 1300);
+  }
+};
+function initSequence() { Seq.init(); }
+function resetSequence() { Seq.init(); }
+
+// ===================== MODAL =====================
+let _quitAction = null;
+function showModal(title, text, action) {
+  $('modal-title').textContent = title;
+  $('modal-text').textContent = text;
+  $('modal-overlay').style.display = 'flex';
+  _quitAction = action;
+}
+function closeModal() { $('modal-overlay').style.display = 'none'; }
+function confirmQuit() { closeModal(); _quitAction?.(); }
+
+// ===================== INIT =====================
+window.addEventListener('DOMContentLoaded', () => {
+  GameData._load();
+
+  // Teclas de piano
+  document.querySelectorAll('.piano-key').forEach(key => {
+    const play = e => {
+      if (e.cancelable) e.preventDefault();
+      AudioSys.playTone(parseFloat(key.dataset.note), 'sine', 0.42, 0.2);
+      key.classList.add('active');
+    };
+    const stop = () => key.classList.remove('active');
+    key.addEventListener('touchstart', play, { passive:false });
+    key.addEventListener('touchend', stop);
+    key.addEventListener('mousedown', play);
+    key.addEventListener('mouseup', stop);
+    key.addEventListener('mouseleave', stop);
+  });
+
+  // Flappy input
+  $('screen-flappy').addEventListener('touchstart', () => Flappy.flap(), { passive:true });
+  $('screen-flappy').addEventListener('mousedown',  () => Flappy.flap());
+
+  // Sequência
+  document.querySelectorAll('.seq-btn').forEach(btn => {
+    btn.addEventListener('click', () => Seq.tap(parseInt(btn.dataset.color)));
+  });
+
+  // Teclado
+  window.addEventListener('keydown', e => {
+    if (Flappy.state?.active && e.key === ' ') { e.preventDefault(); Flappy.flap(); }
+  });
+
+  checkDailyLogin();
+  updatePlayerStats();
+  updateBestScores();
+  renderMissions();
 });
+
