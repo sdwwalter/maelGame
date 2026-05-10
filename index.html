@@ -1,267 +1,304 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Aventura Kids</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#FF6B35">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌈</text></svg>">
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Aventura Kids</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<!-- Fundo animado -->
-<div class="bg-gradient"></div>
-<div class="bg-stars"></div>
-
-<!-- Toast -->
-<div id="toast"></div>
-
 <div class="game-container">
 
-    <!-- Tela Inicial -->
-    <div id="screen-start" class="screen active">
-        <div class="start-content">
-            <div class="logo-bounce">🌈</div>
-            <h1 class="title-main">AVENTURA KIDS</h1>
-            <p class="subtitle">O mundo da diversão!</p>
-            <button class="btn btn-big btn-primary" onclick="showScreen('screen-hero')">
-                VAMOS COMEÇAR! 🚀
-            </button>
-        </div>
+  <!-- ===== TOAST ===== -->
+  <div id="toast"></div>
+
+  <!-- ===== MODAL ===== -->
+  <div id="modal-overlay">
+    <div class="modal-box">
+      <div id="modal-title">Sair?</div>
+      <div id="modal-text">Tem certeza?</div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeModal()">Não</button>
+        <button class="btn btn-danger"    onclick="confirmQuit()">Sim</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= MENU PRINCIPAL ========================= -->
+  <div id="screen-menu" class="screen active">
+
+    <div class="menu-header">
+      <div class="menu-title">🌟 Aventura Kids</div>
+      <div class="menu-subtitle">Escolha seu jogo!</div>
     </div>
 
-    <!-- Recompensa Diária -->
-    <div id="screen-reward" class="screen">
-        <div class="reward-content">
-            <div class="reward-fire">🔥</div>
-            <h2 class="reward-title">Login Diário!</h2>
-            <p id="reward-streak-msg">Sequência: 1 dia!</p>
-            <div class="streak-days-bar" id="streak-days-bar"></div>
-            <div class="reward-box">
-                <div class="reward-amount">🪙 +<span id="reward-coins-amount">20</span></div>
-                <p class="reward-hint">Volte amanhã para ganhar mais!</p>
-            </div>
-            <button class="btn btn-big btn-primary" id="btn-claim" onclick="claimDailyReward()">
-                Resgatar! 🎉
-            </button>
-        </div>
+    <div class="player-stats">
+      <div class="stat-chip hero-chip" id="menu-hero-display">🐶</div>
+      <div class="stat-chip">⭐ <span id="level-display">1</span> <span class="label">nível</span></div>
+      <div class="stat-chip">🪙 <span id="coins-display">0</span></div>
+      <div class="stat-chip">🔥 <span id="streak-display">0</span> <span class="label">dias</span></div>
+    </div>
+    <div class="xp-bar-wrap"><div id="xp-bar-fill" style="width:0%"></div></div>
+
+    <div class="games-grid">
+
+      <button class="menu-card race" onclick="initRace()">
+        <span class="card-icon">🏃</span>
+        <span class="card-name">Corrida</span>
+        <span class="card-best" id="best-race">🏆0</span>
+      </button>
+
+      <button class="menu-card flappy" onclick="initFlappy()">
+        <span class="card-icon">✈️</span>
+        <span class="card-name">Flappy</span>
+        <span class="card-best" id="best-flappy">🏆0</span>
+      </button>
+
+      <button class="menu-card blocks" onclick="initBlocks()">
+        <span class="card-icon">🧱</span>
+        <span class="card-name">Blocos</span>
+        <span class="card-best" id="best-blocks">🏆0</span>
+      </button>
+
+      <button class="menu-card piano" onclick="initPiano()">
+        <span class="card-icon">🎹</span>
+        <span class="card-name">Piano</span>
+        <span class="card-best">🎵 Toque!</span>
+      </button>
+
+      <button class="menu-card memory" onclick="initMemory()">
+        <span class="card-icon">🧠</span>
+        <span class="card-name">Memória</span>
+        <span class="card-best" id="best-memory">⏱--</span>
+      </button>
+
+      <button class="menu-card balloons" onclick="initBalloons()">
+        <span class="card-icon">🎈</span>
+        <span class="card-name">Balões</span>
+        <span class="card-best" id="best-balloons">🏆0</span>
+      </button>
+
+      <button class="menu-card ttt" onclick="initTicTacToe()">
+        <span class="card-icon">❌</span>
+        <span class="card-name">Jogo da Velha</span>
+        <span class="card-best">VS Comp.</span>
+      </button>
+
+      <button class="menu-card sequence" onclick="initSequence()">
+        <span class="card-icon">🌈</span>
+        <span class="card-name">Sequência</span>
+        <span class="card-best" id="best-sequence">🏆0</span>
+      </button>
+
     </div>
 
-    <!-- Seleção de Herói -->
-    <div id="screen-hero" class="screen">
-        <h2 class="screen-title">Escolha seu Amigo!</h2>
-        <div class="menu-grid">
-            <div class="menu-card" onclick="setHero('🐶')"><div class="icon-lg">🐶</div><h3>Dogão</h3></div>
-            <div class="menu-card" onclick="setHero('🦁')"><div class="icon-lg">🦁</div><h3>Leão</h3></div>
-            <div class="menu-card" onclick="setHero('🦖')"><div class="icon-lg">🦖</div><h3>Dino</h3></div>
-            <div class="menu-card" onclick="setHero('🦊')"><div class="icon-lg">🦊</div><h3>Raposa</h3></div>
-        </div>
+    <div class="menu-actions">
+      <button class="btn btn-warning" onclick="showScreen('screen-heroes')">🐶 Trocar Herói</button>
+      <button class="btn btn-secondary" onclick="showScreen('screen-missions')">🎯 Missões</button>
     </div>
 
-    <!-- Menu Principal -->
-    <div id="screen-menu" class="screen" style="padding: 10px 15px;">
-        <div class="player-stats-bar">
-            <div class="stat-chip streak-chip">🔥 <span id="streak-display">0</span>d</div>
-            <div class="stat-chip level-chip">⚡ Nv <span id="level-display">1</span></div>
-            <div class="stat-chip coins-chip">🪙 <span id="coins-display">0</span></div>
-        </div>
-
-        <h2 class="screen-title" style="font-size:1.2rem; margin:5px 0;">O que vamos jogar?</h2>
-
-        <!-- Grade de Jogos (3 colunas) -->
-        <div class="menu-grid-three">
-            <div class="menu-card card-game" onclick="initRace()">
-                <div class="icon-md">🏃</div><h4>Corrida</h4>
-                <div class="game-best" id="best-race">🏆0</div>
-            </div>
-            <div class="menu-card card-game" onclick="initFlappy()">
-                <div class="icon-md">✈️</div><h4>Flappy</h4>
-                <div class="game-best" id="best-flappy">🏆0</div>
-            </div>
-            <div class="menu-card card-game" onclick="initBlocks()">
-                <div class="icon-md">🧱</div><h4>Blocos</h4>
-                <div class="game-best" id="best-blocks">🏆0</div>
-            </div>
-            <div class="menu-card card-game" onclick="initPiano()">
-                <div class="icon-md">🎹</div><h4>Piano</h4>
-            </div>
-            <div class="menu-card card-game" onclick="initMemory()">
-                <div class="icon-md">🧠</div><h4>Memória</h4>
-                <div class="game-best" id="best-memory">⏱--</div>
-            </div>
-            <div class="menu-card card-game" onclick="initBalloons()">
-                <div class="icon-md">🎈</div><h4>Balões</h4>
-                <div class="game-best" id="best-balloons">🏆0</div>
-            </div>
-            <div class="menu-card card-game" onclick="initTicTacToe()">
-                <div class="icon-md">❌</div><h4>Velha</h4>
-            </div>
-            <div class="menu-card card-game" onclick="initSequence()">
-                <div class="icon-md">🌈</div><h4>Cores</h4>
-                <div class="game-best" id="best-sequence">🏆0</div>
-            </div>
-            <div class="menu-card card-hero" onclick="showScreen('screen-hero')">
-                <div class="icon-md">👤</div><h4>Trocar</h4>
-            </div>
-        </div>
-
-        <!-- Missões -->
-        <div class="missions-section">
-            <div class="missions-header">🎯 Missões do Dia</div>
-            <div id="missions-list"></div>
-        </div>
+    <div class="missions-section">
+      <div class="missions-title">🎯 Missões de hoje</div>
+      <div id="missions-list"></div>
     </div>
 
-    <!-- Tela de Corrida -->
-    <div id="screen-race" class="screen" style="padding:0;">
-        <div class="score-bar">
-            <span>❤️ <span id="race-lives">3</span></span>
-            <span>⭐ <span id="race-score">0</span></span>
-            <button class="btn btn-danger btn-small" onclick="quitGame()">🚩 Sair</button>
-        </div>
-        <div id="race-container">
-            <div class="clouds"></div>
-            <div class="road">
-                <div class="lane-line"></div>
-                <div class="lane-line right"></div>
-            </div>
-            <div id="race-hero" class="race-hero">🐶</div>
-            <div id="combo-display" class="combo-display"></div>
-        </div>
-    </div>
+  </div><!-- /screen-menu -->
 
-    <!-- Flappy -->
-    <div id="screen-flappy" class="screen" style="padding:0; background:#71C5CF;">
-        <div class="score-bar flappy-bar">
-            <span>⭐ <span id="flappy-score">0</span></span>
-            <button class="btn btn-danger btn-small" onclick="quitFlappy()">Sair</button>
-        </div>
-        <div id="flappy-container">
-            <div id="flappy-hero">🐶</div>
-        </div>
+  <!-- ========================= RECOMPENSA DIÁRIA ========================= -->
+  <div id="screen-reward" class="screen">
+    <div class="reward-screen">
+      <div class="reward-title">🌅 Bem-vindo de volta!</div>
+      <div id="reward-streak-msg">Sequência: 1 dia!</div>
+      <div id="streak-days-bar" class="streak-bar"></div>
+      <div>
+        <div style="font-size:1rem; color:var(--text-dim); margin-bottom:6px;">Recompensa de hoje</div>
+        <div class="reward-coins"><span id="reward-coins-amount">20</span> 🪙</div>
+      </div>
+      <button class="btn btn-success btn-big" onclick="claimDailyReward()">✅ Resgatar!</button>
     </div>
+  </div>
 
-    <!-- Piano -->
-    <div id="screen-piano" class="screen">
-        <div class="score-bar piano-bar">
-            <span>🎹 PIANO KIDS</span>
-            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')">Sair</button>
-        </div>
-        <div class="piano-container">
-            <div class="piano-key" data-note="261.63" style="background:#FF595E;">Dó</div>
-            <div class="piano-key" data-note="293.66" style="background:#FFCA3A;">Ré</div>
-            <div class="piano-key" data-note="329.63" style="background:#8AC926;">Mi</div>
-            <div class="piano-key" data-note="349.23" style="background:#1982C4;">Fá</div>
-            <div class="piano-key" data-note="392.00" style="background:#6A4C93;">Sol</div>
-            <div class="piano-key" data-note="440.00" style="background:#FF924C;">Lá</div>
-            <div class="piano-key" data-note="493.88" style="background:#FF69EB;">Si</div>
-        </div>
+  <!-- ========================= SELETOR DE HERÓI ========================= -->
+  <div id="screen-heroes" class="screen">
+    <div class="screen-header">
+      <div class="screen-title">🐾 Escolha seu herói</div>
+      <button class="btn btn-secondary btn-small" onclick="showScreen('screen-menu')">← Voltar</button>
     </div>
-
-    <!-- Game Over -->
-    <div id="screen-race-over" class="screen">
-        <div id="new-record-badge" class="new-record-badge" style="display:none;">⭐ NOVO RECORDE! ⭐</div>
-        <h2 class="screen-title">Fim de Jogo!</h2>
-        <div class="gameover-emoji" id="gameover-emoji">🏁</div>
-        <div class="result-box">
-            <div class="result-row"><span>Pontuação</span><strong id="final-score">0</strong></div>
-            <div class="result-row"><span>Moedas ganhas</span><strong id="final-coins-earned">+0 🪙</strong></div>
-            <div class="result-row"><span id="highscore-label">🏆 Recorde</span><strong id="highscore-display">0</strong></div>
-        </div>
-        <button class="btn btn-success btn-big" id="btn-play-again" onclick="playAgain()">Jogar de Novo! 🔄</button>
-        <button class="btn btn-primary btn-big" onclick="showScreen('screen-menu')">Menu Principal 🏠</button>
+    <div class="hero-grid">
+      <div class="hero-card" onclick="setHero('🐶')">
+        <span class="hero-emoji">🐶</span>
+        <span class="hero-name">Doggy</span>
+      </div>
+      <div class="hero-card" onclick="setHero('🐱')">
+        <span class="hero-emoji">🐱</span>
+        <span class="hero-name">Gatinho</span>
+      </div>
+      <div class="hero-card" onclick="setHero('🦊')">
+        <span class="hero-emoji">🦊</span>
+        <span class="hero-name">Raposa</span>
+      </div>
+      <div class="hero-card" onclick="setHero('🐸')">
+        <span class="hero-emoji">🐸</span>
+        <span class="hero-name">Sapo</span>
+      </div>
+      <div class="hero-card" onclick="setHero('🐻')">
+        <span class="hero-emoji">🐻</span>
+        <span class="hero-name">Ursinho</span>
+      </div>
+      <div class="hero-card" onclick="setHero('🦁')">
+        <span class="hero-emoji">🦁</span>
+        <span class="hero-name">Leão</span>
+      </div>
     </div>
+  </div>
 
-    <!-- Memória -->
-    <div id="screen-memory" class="screen">
-        <div class="score-bar"><span>⏱️ <span id="memory-time">0s</span></span>
-            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')">Sair</button>
-        </div>
-        <div class="memory-grid" id="memory-grid"></div>
+  <!-- ========================= MISSÕES ========================= -->
+  <div id="screen-missions" class="screen">
+    <div class="screen-header">
+      <div class="screen-title">🎯 Missões do dia</div>
+      <button class="btn btn-secondary btn-small" onclick="showScreen('screen-menu')">← Voltar</button>
     </div>
+    <div id="missions-list-full"></div>
+  </div>
 
-    <!-- Blocos -->
-    <div id="screen-blocks" class="screen" style="padding-bottom:0;">
-        <div class="score-bar"><span>🧱 BLOCOS</span><span>Linhas: <strong id="blocks-lines">0</strong></span>
-            <button class="btn btn-danger btn-small" onclick="quitBlocks()">Sair</button>
-        </div>
-        <div class="blocks-area">
-            <canvas id="blocks-canvas"></canvas>
-            <div id="blocks-swipe-hint">Arrastar = Mover | Toque = Girar | Baixo = Cair</div>
-        </div>
+  <!-- ========================= GAME OVER ========================= -->
+  <div id="screen-race-over" class="screen">
+    <div class="gameover-screen">
+      <div id="gameover-emoji">🏃</div>
+      <div class="gameover-title">Fim de Jogo!</div>
+      <div class="score-display" id="final-score">🏃 0</div>
+      <div class="coins-earned" id="final-coins-earned">+0 🪙</div>
+      <div class="highscore-row">
+        <span>Recorde:</span>
+        <strong id="highscore-display">0</strong>
+      </div>
+      <div id="new-record-badge" style="display:none;">⭐ NOVO RECORDE! ⭐</div>
+      <div class="gameover-actions">
+        <button class="btn btn-success btn-big" id="btn-play-again">▶ Jogar de Novo</button>
+        <button class="btn btn-secondary" onclick="showScreen('screen-menu')">🏠 Menu</button>
+      </div>
     </div>
+  </div>
 
-    <!-- 🎈 Balões -->
-    <div id="screen-balloons" class="screen" style="padding:0; background:linear-gradient(180deg, #87CEEB 0%, #FFE4E1 100%);">
-        <div class="score-bar" style="position:absolute; top:0; left:0; right:0; background:rgba(255,255,255,0.9); z-index:10;">
-            <span>🎈 <span id="balloons-score">0</span></span>
-            <span>❤️ <span id="balloons-lives">5</span></span>
-            <button class="btn btn-danger btn-small" onclick="quitBalloons()">Sair</button>
-        </div>
-        <div id="balloons-container" style="flex:1; position:relative; overflow:hidden;">
-            <div id="balloons-overlay" style="position:absolute; inset:0; pointer-events:none; z-index:5;"></div>
-        </div>
+  <!-- ========================= CORRIDA ========================= -->
+  <!-- Reconstruído por Race.init() — só precisa do id -->
+  <div id="screen-race" class="screen"></div>
+
+  <!-- ========================= FLAPPY ========================= -->
+  <div id="screen-flappy" class="screen" style="padding:0;">
+    <div id="flappy-container">
+      <div id="flappy-hero">🐶</div>
+      <div id="flappy-score">0</div>
+      <div class="flappy-ui">
+        <button class="btn btn-danger btn-small" onclick="quitFlappy()" style="opacity:0.85;">✕</button>
+      </div>
     </div>
+  </div>
 
-    <!-- ❌ Jogo da Velha -->
-    <div id="screen-tictactoe" class="screen">
-        <div class="score-bar"><span>❌ JOGO DA VELHA</span><span id="ttt-status">Sua vez!</span>
-            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')">Sair</button>
-        </div>
-        <div class="ttt-board" id="ttt-board">
-            <div class="ttt-cell" data-i="0"></div>
-            <div class="ttt-cell" data-i="1"></div>
-            <div class="ttt-cell" data-i="2"></div>
-            <div class="ttt-cell" data-i="3"></div>
-            <div class="ttt-cell" data-i="4"></div>
-            <div class="ttt-cell" data-i="5"></div>
-            <div class="ttt-cell" data-i="6"></div>
-            <div class="ttt-cell" data-i="7"></div>
-            <div class="ttt-cell" data-i="8"></div>
-        </div>
-        <button class="btn btn-primary" id="ttt-reset" onclick="resetTicTacToe()">Jogar de Novo 🔄</button>
+  <!-- ========================= BLOCOS ========================= -->
+  <!-- Reconstruído por Blocks.init() -->
+  <div id="screen-blocks" class="screen" style="padding:0;"></div>
+
+  <!-- ========================= PIANO ========================= -->
+  <div id="screen-piano" class="screen">
+    <div class="screen-header">
+      <div class="screen-title">🎹 Piano</div>
+      <button class="btn btn-secondary btn-small" onclick="showScreen('screen-menu')">← Voltar</button>
     </div>
-
-    <!-- 🌈 Sequência de Cores -->
-    <div id="screen-sequence" class="screen">
-        <div class="score-bar"><span>🌈 SEQUÊNCIA</span><span>Nível <span id="seq-level">1</span></span>
-            <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')">Sair</button>
-        </div>
-        <div class="seq-status" id="seq-status">Observe a sequência...</div>
-        <div class="seq-board" id="seq-board">
-            <div class="seq-btn" data-color="0" style="background:#FF595E;"></div>
-            <div class="seq-btn" data-color="1" style="background:#FFCA3A;"></div>
-            <div class="seq-btn" data-color="2" style="background:#8AC926;"></div>
-            <div class="seq-btn" data-color="3" style="background:#1982C4;"></div>
-        </div>
+    <div style="text-align:center;color:var(--text-dim);font-size:0.9rem;margin-bottom:12px;">
+      Toque as teclas e crie sua música! 🎵
     </div>
-
-    <!-- Modal -->
-    <div id="modal-overlay">
-        <div class="modal-box">
-            <h3 id="modal-title">Parar agora?</h3>
-            <p id="modal-text">Se você sair, perderá o progresso desta partida!</p>
-            <div style="display:flex; gap:10px;">
-                <button class="btn btn-danger" style="flex:1;" onclick="confirmQuit()">Sim, Sair</button>
-                <button class="btn btn-success" style="flex:1;" onclick="closeModal()">Continuar!</button>
-            </div>
-        </div>
+    <div id="piano-keys" style="flex:1; display:flex; gap:4px; align-items:stretch; padding:8px 4px;">
+      <button class="piano-key white-key" data-note="261">🎵<br>Dó</button>
+      <button class="piano-key black-key" data-note="277">♯</button>
+      <button class="piano-key white-key" data-note="294">Ré</button>
+      <button class="piano-key black-key" data-note="311">♯</button>
+      <button class="piano-key white-key" data-note="330">Mi</button>
+      <button class="piano-key white-key" data-note="349">Fá</button>
+      <button class="piano-key black-key" data-note="370">♯</button>
+      <button class="piano-key white-key" data-note="392">Sol</button>
+      <button class="piano-key black-key" data-note="415">♯</button>
+      <button class="piano-key white-key" data-note="440">Lá</button>
+      <button class="piano-key black-key" data-note="466">♯</button>
+      <button class="piano-key white-key" data-note="494">Si</button>
+      <button class="piano-key white-key" data-note="523">Dó²</button>
     </div>
+  </div>
 
-</div>
+  <!-- ========================= MEMÓRIA ========================= -->
+  <div id="screen-memory" class="screen">
+    <div class="score-bar">
+      <span>🧠 MEMÓRIA</span>
+      <span>⏱ <strong id="memory-time">0s</strong></span>
+      <button class="btn btn-danger btn-small" onclick="showScreen('screen-menu')">Sair</button>
+    </div>
+    <div id="memory-grid"></div>
+  </div>
+
+  <!-- ========================= BALÕES ========================= -->
+  <div id="screen-balloons" class="screen" style="padding:0;">
+    <div id="balloons-container">
+      <div class="balloons-header">
+        <div class="balloon-stat">🎈 <span id="balloons-score">0</span></div>
+        <div class="balloon-stat">❤️ <span id="balloons-lives">5</span></div>
+        <button class="btn btn-danger btn-small" onclick="quitBalloons()">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= JOGO DA VELHA ========================= -->
+  <div id="screen-tictactoe" class="screen">
+    <div class="screen-header">
+      <div class="screen-title">❌ Jogo da Velha</div>
+      <button class="btn btn-secondary btn-small" onclick="showScreen('screen-menu')">← Voltar</button>
+    </div>
+    <div id="ttt-status" style="text-align:center;font-size:1.2rem;margin:10px 0;">Sua vez! ❌</div>
+    <div id="ttt-board">
+      <div class="ttt-cell" data-i="0"></div>
+      <div class="ttt-cell" data-i="1"></div>
+      <div class="ttt-cell" data-i="2"></div>
+      <div class="ttt-cell" data-i="3"></div>
+      <div class="ttt-cell" data-i="4"></div>
+      <div class="ttt-cell" data-i="5"></div>
+      <div class="ttt-cell" data-i="6"></div>
+      <div class="ttt-cell" data-i="7"></div>
+      <div class="ttt-cell" data-i="8"></div>
+    </div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn btn-warning" onclick="resetTicTacToe()">🔄 Novo Jogo</button>
+    </div>
+  </div>
+
+  <!-- ========================= SEQUÊNCIA DE CORES ========================= -->
+  <div id="screen-sequence" class="screen">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">🌈 Sequência</div>
+        <div id="seq-status" style="font-size:0.95rem;color:var(--text-dim);">Observe...</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:0.8rem;color:var(--text-dim);">Fase</div>
+        <div id="seq-level" style="font-size:2rem;color:#FFD600;line-height:1;">1</div>
+      </div>
+      <button class="btn btn-secondary btn-small" onclick="showScreen('screen-menu')">← Voltar</button>
+    </div>
+    <div class="seq-grid">
+      <button class="seq-btn" data-color="0" aria-label="Vermelho"></button>
+      <button class="seq-btn" data-color="1" aria-label="Azul"></button>
+      <button class="seq-btn" data-color="2" aria-label="Verde"></button>
+      <button class="seq-btn" data-color="3" aria-label="Amarelo"></button>
+    </div>
+  </div>
+
+</div><!-- /game-container -->
 
 <script src="game.js"></script>
-<script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-                .then(reg => console.log('SW OK', reg))
-                .catch(err => console.error('SW Erro', err));
-        });
-    }
-</script>
 </body>
-</html>
+          </html>
+    
